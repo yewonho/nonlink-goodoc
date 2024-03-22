@@ -1,0 +1,801 @@
+unit RREnvUnit;
+
+interface
+uses
+  System.SysUtils, System.Variants, System.Classes,
+  System.Generics.Collections,
+  inifiles,
+  Vcl.Grids,
+  RRConst;
+
+type
+  TGridInfoItem = class
+  private
+    { private declarations }
+    FGridInfoID : string;
+    FGridColWidth: TList<Integer>;
+    function GetWidthCount: integer;
+    function GetGridColWidths(index: Integer): Integer;
+
+    // 목록별 grid의 col width값에 대한 초기값 설정, 총 7개 정의함.
+    procedure InitGridInfo( AGridInfoID : string );
+  public
+    { public declarations }
+    SortType : integer; // grid의 sort 상태를 관리 한다.
+    property WidthCount : integer read GetWidthCount;
+    property GridColWidths[ index : Integer ] : Integer read GetGridColWidths;
+  public
+    { public declarations }
+    constructor Create( AGridID : String); virtual;
+    destructor Destroy; override;
+
+    // grid 정보를 저장 한다.
+    procedure SetGridInfo( var ATargetSortType : Integer; ATargetGrid : TStringGrid );
+    // 저장되어 있는 grid정보를 대상 grid에 설정 한다. true이면 설정이 완료되었다. false이면 기본값으로 설정 되었다.
+    procedure AssignGridInfo( ASourceSortType : integer; ASourceGrid : TStringGrid );
+
+    // 저장
+    procedure Save( AIniFile : TIniFile );
+    // 적제
+    procedure Load( AIniFile : TIniFile );
+  end;
+
+  TGridInfoList = class
+  private
+    { private declarations }
+    FList : TStringList;
+    function GetCount: integer;
+    function GetGridInfos(AIndex: Integer): TGridInfoItem;
+
+    procedure RegisterGridInfo;
+    // gridinfo 객체를 추가 한다. 단, gridinfoid가 중복되면 기존에 있는 객체를 반환 한다.
+    function AddGridInfo( AGridInfoID : string ) : TGridInfoItem;
+  public
+    { public declarations }
+    constructor Create; virtual;
+    destructor Destroy; override;
+
+    // gridinfoid에 해당하는 data가 없으면 nil을 반환 한다.
+    function GetGridInfo( AGridInfoID : string ) : TGridInfoItem;
+
+    procedure Delete( AIndex : Integer ); 
+    procedure Clear; 
+
+    // 저장
+    procedure Save( AIniFile : TIniFile );
+    // 적제
+    procedure Load( AIniFile : TIniFile );
+
+    property Count : integer read GetCount;
+    property GridInfos[ AIndex : Integer ] : TGridInfoItem read GetGridInfos;
+  end;
+
+  TRREnv = class(TComponent)
+  private
+    { private declarations }
+    FID: string;
+    FToken: string;
+    FPW: string;
+
+    FHospitalID: string;
+    FChartCode: integer;
+
+    FLocalIP: string;
+    FOSVersion: string;
+    FAppVersion: string;
+
+    FfsStayOnTop: Boolean;
+    FfsMaxForm: Boolean;
+    FfsFormMaxPositionLeft: Boolean;
+    FAutoLoginCheck: Boolean;
+    FAutoStartCheck: Boolean;
+    FLoginOk: Boolean;
+
+    FToDay_ExpandCollapse_Reception: Boolean;
+    FToDay_ExpandCollapse_ReceptionReservation: Boolean;
+    FToDay_ExpandCollapse_Reservation: Boolean;
+    FDay_ExpandCollapse_ReservationDecide: Boolean;
+    FDay_ExpandCollapse_ReservationRequest: Boolean;
+    FMonthList_ExpandCollapse_ReservationDecide: Boolean;
+    FMonthList_ExpandCollapse_ReservationRequest: Boolean;
+
+    FGridInfoList : TGridInfoList;
+
+    // Hook
+    FHookOCSType : THookOCSType;
+    FChartDBConnectionString : string;
+    FIsFindPatientEnabled: Boolean;
+
+    // 설정-항목 설정
+    FShowOptionRoom: Boolean;
+    FShowOptionRegNum: Boolean;
+    FShowOptionCreationTime: Boolean;
+    FShowOptionReservationTime: Boolean;
+    FShowOptionSymptom: Boolean;
+
+    procedure GetOSVersion;
+    procedure GetAppVersion;
+  protected
+    { protected declarations }
+  public
+    { public declarations }
+    constructor Create( AOwner : TComponent ); override;
+    destructor Destroy; override;
+
+    // 저장된 환경 값을 읽어 낸다.
+    procedure Load;
+    // 환경값을 저장 한다.
+    procedure Save;
+
+    // 로그인 상태를 설정 한다.
+    procedure SetLogin( AID, APW, AToken : string);
+    // 로그 아웃 상태를 설정 한다.
+    procedure SetLogout;
+
+    property Token : string read FToken;
+    property ID : string read FID;
+    property PW : string read FPW;
+    property HospitalID : string read FHospitalID write FHospitalID;
+    property ChartCode : integer read FChartCode write FChartCode;
+
+    // 병원code를 registry에서 읽어 낸다.
+    procedure LoadHospitalCode;
+    // 병원 code를 registry에 기록 한다.
+    procedure SaveHospitalCode;
+
+    // form style을 fsStayOnTop로 설정
+    property fsStayOnTop : Boolean read FfsStayOnTop write FfsStayOnTop;
+    // 프로그램 구동시 form을 최대화 설정
+    property fsMaxForm : Boolean read FfsMaxForm write FfsMaxForm;
+    // form 최대화시 위치 설정, true이면 오른쪽
+    property fsFormMaxPositionLeft : Boolean read FfsFormMaxPositionLeft write FfsFormMaxPositionLeft;
+
+    // 자동 login기능을 사용할지 check한다.
+    property AutoLoginCheck : Boolean read FAutoLoginCheck write FAutoLoginCheck;
+    // window가 시작 할 때 자동 시작할지 check한다.
+    property AutoStartCheck : Boolean read FAutoStartCheck write FAutoStartCheck;
+
+    // login 상태 여부, true이면 login이 된 상태이다.
+    property LoginOk : Boolean read FLoginOk write FLoginOk;
+
+    // system 환경값 관리
+    property LocalIP : string read FLocalIP;
+    property OSVersion : string read FOSVersion;
+    property AppVersion : string read FAppVersion;
+
+    // 접기/펴기 button 상태
+    // 당일 접수/예약 접기/펴기 버튼
+    property ToDay_ExpandCollapse_ReceptionReservation : Boolean read FToDay_ExpandCollapse_ReceptionReservation write FToDay_ExpandCollapse_ReceptionReservation;
+    // 당일 접수 접기/펴기 버튼
+    property ToDay_ExpandCollapse_Reception : Boolean read FToDay_ExpandCollapse_Reception write FToDay_ExpandCollapse_Reception;
+    // 당일 예약 접기/펴기 버튼
+    property ToDay_ExpandCollapse_Reservation : Boolean read FToDay_ExpandCollapse_Reservation write FToDay_ExpandCollapse_Reservation;
+    // "일단위",  예약 요청
+    property Day_ExpandCollapse_ReservationRequest : Boolean read FDay_ExpandCollapse_ReservationRequest write FDay_ExpandCollapse_ReservationRequest;
+    // "일단위",  예약 확정
+    property Day_ExpandCollapse_ReservationDecide : Boolean read FDay_ExpandCollapse_ReservationDecide write FDay_ExpandCollapse_ReservationDecide;
+    // "월단위" list, 예약 요청
+    property MonthList_ExpandCollapse_ReservationRequest : Boolean read FMonthList_ExpandCollapse_ReservationRequest write FMonthList_ExpandCollapse_ReservationRequest;
+    // "월단위" list, 예약 확정
+    property MonthList_ExpandCollapse_ReservationDecide : Boolean read FMonthList_ExpandCollapse_ReservationDecide write FMonthList_ExpandCollapse_ReservationDecide;
+
+    property GridInfoList : TGridInfoList read FGridInfoList;
+
+    property HookOCSType : THookOCSType read FHookOCSType write FHookOCSType;
+    property ChartDBConnectionString : string read FChartDBConnectionString write FChartDBConnectionString;
+    property IsFindPatientEnabled : Boolean read FIsFindPatientEnabled write FIsFindPatientEnabled;
+
+    property ShowOptionRoom : Boolean read FShowOptionRoom write FShowOptionRoom;
+    property ShowOptionRegNum : Boolean read FShowOptionRegNum write FShowOptionRegNum;
+    property ShowOptionCreationTime: Boolean read FShowOptionCreationTime write FShowOptionCreationTime;
+    property ShowOptionReservationTime : Boolean read FShowOptionReservationTime write FShowOptionReservationTime;
+    property ShowOptionSymptom : Boolean read FShowOptionSymptom write FShowOptionSymptom;
+
+
+    function GetHookOCSName : string;
+  published
+    { published declarations }
+  end;
+
+function GetRREnv : TRREnv;
+
+const
+  DefaultChartCode      = 1010;
+  DefaultGridColWidth   = 100;
+
+implementation
+uses
+  Windows, Registry, forms,
+  CipherAES, gdlog,
+  UtilsUnit;
+
+const
+  EnvFileName = 'RR.Dat';
+  __CipherKeyDefine__ = 'a47b30a2e3db0bbc';
+
+  HospitalCodePath      = 'SOFTWARE\GoodocV3';
+  HospitalCodeNameMain  = 'hospital_id';
+  HospitalChartCode     = 'chartcode';
+
+var
+  GRREnv : TRREnv;
+
+function GetRREnv : TRREnv;
+begin
+  if not Assigned( GRREnv ) then
+  begin
+    GRREnv := TRREnv.Create( nil );
+  end;
+
+  Result := GRREnv;
+end;
+
+{ TRREnv }
+
+constructor TRREnv.Create(AOwner: TComponent);   //비연동 환경설정 기본값
+begin
+  inherited;
+
+  FLoginOk := False;
+
+  FfsStayOnTop := False;
+  FfsMaxForm := false;
+  FfsFormMaxPositionLeft := True;
+  FAutoLoginCheck := False;
+  FAutoStartCheck := False;
+
+  FToDay_ExpandCollapse_Reception := True;
+  FToDay_ExpandCollapse_ReceptionReservation := True;
+  FToDay_ExpandCollapse_Reservation := True;
+  FDay_ExpandCollapse_ReservationDecide := True;
+  FDay_ExpandCollapse_ReservationRequest := True;
+  FMonthList_ExpandCollapse_ReservationDecide := True;
+  FMonthList_ExpandCollapse_ReservationRequest := True;
+
+  FGridInfoList := TGridInfoList.Create;
+
+  FHookOCSType := None;
+  FChartDBConnectionString := '';
+  FIsFindPatientEnabled := False;
+
+  FShowOptionRoom := False;
+  FShowOptionRegNum := False;
+  FShowOptionCreationTime := False;
+  FShowOptionReservationTime := True;
+  FShowOptionSymptom := False;
+
+  GetOSVersion;
+  GetAppVersion;
+end;
+
+destructor TRREnv.Destroy;
+begin
+  FreeAndNil( FGridInfoList );
+  
+  inherited;
+end;
+
+procedure TRREnv.GetAppVersion;
+begin
+  FAppVersion := GetBuildInfoAsString;
+end;
+
+procedure TRREnv.GetOSVersion;
+begin
+  FOSVersion := TOSVersion.ToString;
+end;
+
+procedure TRREnv.Load;
+  function CipherDecStr( AEndStr : string ) : string;
+  begin
+    Result := CipherBase64AESDecoding( __CipherKeyDefine__, AEndStr );
+  end;
+var
+  //v : Integer;
+  issave : Boolean;
+  fn : string;
+  ini : TIniFile;
+  ocsType : integer;
+begin
+  issave := False;
+  LoadHospitalCode;
+
+  fn := ExtractFilePath( Application.ExeName ) + EnvFileName;
+  ini := TIniFile.Create( fn );
+  try
+    // 환경값 임의 수정시에 필요한 정보 입니다.
+    //v := ini.ReadInteger('Env', 'Version', 0);
+
+    FfsStayOnTop := ini.ReadBool('Form','StayOnTop', False);
+    FfsMaxForm := ini.ReadBool('Form','FormMax', False);
+    FfsFormMaxPositionLeft := ini.ReadBool('Form','MaxPosi', True);
+
+    FAutoLoginCheck := ini.ReadBool('Login','auto', False);
+    FAutoStartCheck := ini.ReadBool('Run','auto', False);
+
+    FID := CipherDecStr( ini.ReadString('Data','p1', '') );
+    FPW := CipherDecStr( ini.ReadString('Data','p2', '') );
+    FToken := CipherDecStr( ini.ReadString('Data','p3', '') );
+
+    ocsType := ini.ReadInteger('Hook', 'OCSType', 0);
+    if (ocsType >= Ord(Low(THookOCSType))) and (ocsType <= Ord(High(THookOCSType))) then
+      FHookOCSType := THookOCSType(ocsType)
+    else
+      FHookOCSType := THookOCSType(0);
+    FChartDBConnectionString := ini.ReadString('Hook', 'ChartDBConnectionString', '');
+    FIsFindPatientEnabled := ini.ReadBool('Hook', 'FindPatientEnable', true);
+
+    // 접기/펴기 button 상태
+    // 당일 접수/예약 접기/펴기 버튼
+    FToDay_ExpandCollapse_ReceptionReservation := ini.ReadBool('ExpandCollapse','td_rr', True);
+    // 당일 접수 접기/펴기 버튼
+    FToDay_ExpandCollapse_Reception := ini.ReadBool('ExpandCollapse','td_reception', True);
+    // 당일 예약 접기/펴기 버튼
+    FToDay_ExpandCollapse_Reservation := ini.ReadBool('ExpandCollapse','td_reservation', True);
+    // "일단위",  예약 요청
+    FDay_ExpandCollapse_ReservationRequest := ini.ReadBool('ExpandCollapse','d_request', True);
+    // "일단위",  예약 확정
+    FDay_ExpandCollapse_ReservationDecide := ini.ReadBool('ExpandCollapse','d_decide', True);
+    // "월단위" list, 예약 요청
+    FMonthList_ExpandCollapse_ReservationRequest := ini.ReadBool('ExpandCollapse','ml_request', True);
+    // "월단위" list, 예약 확정
+    FMonthList_ExpandCollapse_ReservationDecide := ini.ReadBool('ExpandCollapse','ml_decide', True);
+
+    if (FToDay_ExpandCollapse_ReceptionReservation = False)
+        and (FToDay_ExpandCollapse_Reception = false)
+        and (FToDay_ExpandCollapse_Reservation = false) then
+    begin
+      FToDay_ExpandCollapse_ReceptionReservation := True;
+      FToDay_ExpandCollapse_Reception := True;
+      FToDay_ExpandCollapse_Reservation := True;
+      issave := True;
+    end;
+
+    if (FDay_ExpandCollapse_ReservationRequest = False)
+        and (FDay_ExpandCollapse_ReservationDecide = false) then
+    begin
+      FDay_ExpandCollapse_ReservationRequest := True;
+      FDay_ExpandCollapse_ReservationDecide := True;
+      issave := True;
+    end;
+
+    if (FMonthList_ExpandCollapse_ReservationRequest = False)
+        and (FMonthList_ExpandCollapse_ReservationDecide = false) then
+    begin
+      FMonthList_ExpandCollapse_ReservationRequest := True;
+      FMonthList_ExpandCollapse_ReservationDecide := True;
+      issave := True;
+    end;
+
+    FGridInfoList.Load( ini );
+
+    FShowOptionRoom := ini.ReadBool('ShowOption', 'Room', True);
+    FShowOptionRegNum := ini.ReadBool('ShowOption', 'RegNum', True);
+    FShowOptionCreationTime := ini.ReadBool('ShowOption', 'CreationTime', True);
+    FShowOptionReservationTime := ini.ReadBool('ShowOption', 'ReservationTime', False);
+    FShowOptionSymptom := ini.ReadBool('ShowOption', 'Symptom', True);
+  finally
+    FreeAndNil( ini );
+  end;
+
+  if issave then
+    Save;
+end;
+
+procedure TRREnv.LoadHospitalCode;
+var
+  hcode : string;
+  icode : Integer;
+  reg : TRegistry;
+begin
+  try
+    reg := TRegistry.Create( KEY_READ or KEY_WOW64_64KEY );
+    try
+      reg.RootKey := HKEY_LOCAL_MACHINE;
+
+      reg.OpenKey( HospitalCodePath, true );
+      hcode := '';
+
+      if reg.ValueExists( HospitalCodeNameMain ) then
+        hcode := reg.ReadString( HospitalCodeNameMain );
+
+      hcode := TrimLeft( hcode );
+      hcode := TrimRight( hcode );
+      FHospitalID := hcode;
+
+      icode := DefaultChartCode;
+      if reg.ValueExists( HospitalChartCode ) then
+        icode := reg.ReadInteger( HospitalChartCode );
+      FChartCode := icode;
+
+      AddLog( doRunLog, Format('병원 ID : "%s"',[FHospitalID]) );
+      AddLog( doRunLog, Format('차트 Code : "%d"',[FChartCode]) );
+    finally
+      FreeAndNil( reg );
+    end;
+  except
+    on e : exception do
+    begin
+      AddExceptionLog('TRREnv.LoadHospitalCode, 환경 읽기', e);
+    end;
+  end;
+end;
+
+procedure TRREnv.Save;
+  function CipherEncStr( ADecStr : string ) : string;
+  begin
+    Result := CipherAESBase64Encoding( __CipherKeyDefine__, ADecStr );
+  end;
+var
+  fn : string;
+  ini : TIniFile;
+begin
+  SaveHospitalCode;
+
+  fn := ExtractFilePath( Application.ExeName ) + EnvFileName;
+  ini := TIniFile.Create( fn );
+  try
+    ini.WriteBool('Form','StayOnTop', FfsStayOnTop);
+    ini.WriteBool('Form','FormMax', FfsMaxForm);
+    ini.WriteBool('Form','MaxPosi', FfsFormMaxPositionLeft);
+
+    ini.WriteBool('Login','auto', FAutoLoginCheck);
+    ini.WriteBool('Run','auto', FAutoStartCheck);
+
+    ini.WriteString( 'Data','p1', CipherEncStr( FID ) );
+    ini.WriteString( 'Data','p2', CipherEncStr( FPW ) );
+    ini.WriteString( 'Data','p3', CipherEncStr( FToken ) );
+
+    // 환경값 임의 수정시에 필요한 정보 입니다.
+    //ini.WriteInteger('Env', 'Version', EnvVersion);
+
+    ini.WriteInteger('Hook','OCSType', Ord(FHookOCSType));
+    ini.WriteString('Hook', 'ChartDBConnectionString', FChartDBConnectionString);
+    ini.WriteBool('Hook', 'FindPatientEnable', FIsFindPatientEnabled);
+
+    // 접기/펴기 button 상태
+    // 당일 접수/예약 접기/펴기 버튼
+    ini.WriteBool('ExpandCollapse','td_rr', FToDay_ExpandCollapse_ReceptionReservation);
+    // 당일 접수 접기/펴기 버튼
+    ini.WriteBool('ExpandCollapse','td_reception', FToDay_ExpandCollapse_Reception);
+    // 당일 예약 접기/펴기 버튼
+    ini.WriteBool('ExpandCollapse','td_reservation', FToDay_ExpandCollapse_Reservation);
+    // "일단위",  예약 요청
+    ini.WriteBool('ExpandCollapse','d_request', FDay_ExpandCollapse_ReservationRequest);
+    // "일단위",  예약 확정
+    ini.WriteBool('ExpandCollapse','d_decide', FDay_ExpandCollapse_ReservationDecide);
+    // "월단위" list, 예약 요청
+    ini.WriteBool('ExpandCollapse','ml_request', FMonthList_ExpandCollapse_ReservationRequest);
+    // "월단위" list, 예약 확정
+    ini.WriteBool('ExpandCollapse','ml_decide', FMonthList_ExpandCollapse_ReservationDecide);
+
+    FGridInfoList.Save( ini );
+
+    ini.WriteBool('ShowOption', 'Room', FShowOptionRoom);
+    ini.WriteBool('ShowOption', 'RegNum', FShowOptionRegNum);
+    ini.WriteBool('ShowOption', 'CreationTime', FShowOptionCreationTime);
+    ini.WriteBool('ShowOption', 'ReservationTime', FShowOptionReservationTime);
+    ini.WriteBool('ShowOption', 'Symptom', FShowOptionSymptom);
+  finally
+    FreeAndNil( ini );
+  end;
+end;
+
+procedure TRREnv.SaveHospitalCode;
+var
+  reg : TRegistry;
+begin
+  try
+    reg := TRegistry.Create( KEY_ALL_ACCESS or KEY_WOW64_64KEY );
+    try
+      reg.RootKey := HKEY_LOCAL_MACHINE;
+      reg.OpenKey( HospitalCodePath, True );
+      reg.WriteString( HospitalCodeNameMain, FHospitalID );
+      reg.WriteInteger( HospitalChartCode, FChartCode );
+      AddLog( doRunLog, Format('병원 ID 기록 : "%s"',[FHospitalID]) );
+      AddLog( doRunLog, Format('Chart Code 기록 : "%d"',[FChartCode]) );
+    finally
+      FreeAndNil( reg );
+    end;
+  except
+    on e : exception do
+    begin
+      AddExceptionLog( 'TRREnv.SaveHospitalCode, 환경 쓰기 Error', e);
+    end;
+  end;
+end;
+
+procedure TRREnv.SetLogin( AID, APW, AToken: string);
+begin
+  FID := AID;
+  FPW := APW;
+  FToken := AToken;
+
+  Save;
+end;
+
+procedure TRREnv.SetLogout;
+begin
+  FID := '';
+  FPW := '';
+  FToken := '';
+end;
+
+function TRREnv.GetHookOCSName;
+begin
+  Result := HookOCSNames[HookOCSType];
+end;
+
+{ TGridInfoItem }
+
+procedure TGridInfoItem.AssignGridInfo(ASourceSortType : integer; ASourceGrid : TStringGrid);
+var
+  i : Integer;
+begin
+  SortType := ASourceSortType;
+
+  FGridColWidth.Clear;
+
+  for i := 0 to ASourceGrid.ColCount -1 do
+    FGridColWidth.Add( ASourceGrid.ColWidths[ i ] );
+end;
+
+constructor TGridInfoItem.Create(AGridID: String);
+begin
+  FGridColWidth := TList<Integer>.Create;
+  FGridInfoID := AGridID;
+end;
+
+destructor TGridInfoItem.Destroy;
+begin
+  FreeAndNil( FGridColWidth );
+  inherited;
+end;
+
+function TGridInfoItem.GetGridColWidths(index: Integer): Integer;
+begin
+  Result := DefaultGridColWidth;
+  if index < FGridColWidth.Count then
+    Result := FGridColWidth[ index ];
+end;
+
+function TGridInfoItem.GetWidthCount: integer;
+begin
+  Result := FGridColWidth.Count;
+end;
+
+procedure TGridInfoItem.InitGridInfo(AGridInfoID: string);
+begin
+  SortType := Sort_time_Descending;
+  FGridColWidth.Clear;
+
+  if AGridInfoID = Grid_Information_RnR_ID then // 홈/요청 grid
+  begin
+    FGridColWidth.Add( Col_Width_State_RR ); // 상태
+    FGridColWidth.Add( Col_Width_PatientName_RR ); // 이름
+    FGridColWidth.Add( Col_Width_Room_RR ); // 진료실
+    FGridColWidth.Add( Col_Width_BirthDay_RR ); // 생년월일
+    FGridColWidth.Add( Col_Width_Symptom_RR); // 내원목적
+    FGridColWidth.Add( Col_Width_Time_RR ); // 예약/접수 요청시간
+    FGridColWidth.Add( Col_Width_Time2_RR ); // 예약시간
+    FGridColWidth.Add( Col_Width_Button1_RR ); // 관리1
+    FGridColWidth.Add( Col_Width_Button2_RR ); // 관리2
+  end
+  else if AGridInfoID = Grid_Information_Reception_ID then  // 홈/접수 grid
+  begin
+    FGridColWidth.Add( Col_Width_State ); // 상태
+    FGridColWidth.Add( Col_Width_PatientName ); // 이름
+    FGridColWidth.Add( Col_Width_Room ); // 진료실
+    FGridColWidth.Add( Col_Width_BirthDay ); // 생년월일
+    FGridColWidth.Add( Col_Width_Symptom); //내원목적
+    FGridColWidth.Add( Col_Width_Time ); // 접수시간
+    FGridColWidth.Add( Col_Width_Button1 ); // 관리1
+    FGridColWidth.Add( Col_Width_Button2 ); // 관리2
+  end
+  else if AGridInfoID = Grid_Information_Reservation_ID then  // 홈/예약 grid
+  begin
+    FGridColWidth.Add( Col_Width_State ); // 상태
+    FGridColWidth.Add( Col_Width_PatientName ); // 이름
+    FGridColWidth.Add( Col_Width_Room ); // 진료실
+    FGridColWidth.Add( Col_Width_BirthDay ); // 생년월일
+    FGridColWidth.Add( Col_Width_Time ); // 접수시간
+    FGridColWidth.Add( Col_Width_Button1 ); // 관리1
+    FGridColWidth.Add( Col_Width_Button2 ); // 관리2
+  end
+  else if AGridInfoID = Grid_Information_ReservationMonthReq_ID then  // 일/예약요청 grid
+  begin
+    FGridColWidth.Add( Col_Width_State_R ); // 상태
+    FGridColWidth.Add( Col_Width_PatientName_R ); // 이름
+    FGridColWidth.Add( Col_Width_Room_R ); // 진료실
+    FGridColWidth.Add( Col_Width_BirthDay_R ); // 생년월일
+    FGridColWidth.Add( Col_Width_Time_R ); // 접수시간
+    FGridColWidth.Add( Col_Width_Time2_R ); // 예약시간
+    FGridColWidth.Add( Col_Width_Button1_R ); // 관리1
+    FGridColWidth.Add( Col_Width_Button2_R ); // 관리2
+  end
+  else if AGridInfoID = Grid_Information_ReservationMonth_ID then  // 일/예약확정 grid
+  begin
+    FGridColWidth.Add( Col_Width_State_R ); // 상태
+    FGridColWidth.Add( Col_Width_PatientName_R ); // 이름
+    FGridColWidth.Add( Col_Width_Room_R ); // 진료실
+    FGridColWidth.Add( Col_Width_BirthDay_R ); // 생년월일
+    FGridColWidth.Add( Col_Width_Time_R ); // 접수시간
+    FGridColWidth.Add( Col_Width_Button1_R ); // 관리1
+    FGridColWidth.Add( Col_Width_Button2_R ); // 관리2
+  end
+  else if AGridInfoID = Grid_Information_ReservationListReq_ID then  // 월/예약요청 grid
+  begin
+    FGridColWidth.Add( Col_Width_State_R ); // 상태
+    FGridColWidth.Add( Col_Width_PatientName_R ); // 이름
+    FGridColWidth.Add( Col_Width_Room_R ); // 진료실
+    FGridColWidth.Add( Col_Width_BirthDay_R ); // 생년월일
+    FGridColWidth.Add( Col_Width_Time_R ); // 접수시간
+    FGridColWidth.Add( Col_Width_Time2_R ); // 예약시간
+    FGridColWidth.Add( Col_Width_Button1_R ); // 관리1
+    FGridColWidth.Add( Col_Width_Button2_R ); // 관리2
+  end
+  else if AGridInfoID = Grid_Information_ReservationList_ID then  // 월/예약확정 grid
+  begin
+    FGridColWidth.Add( Col_Width_State_R ); // 상태
+    FGridColWidth.Add( Col_Width_PatientName_R ); // 이름
+    FGridColWidth.Add( Col_Width_Room_R ); // 진료실
+    FGridColWidth.Add( Col_Width_BirthDay_R ); // 생년월일
+    FGridColWidth.Add( Col_Width_Time_R ); // 접수시간
+    FGridColWidth.Add( Col_Width_Button1_R ); // 관리1
+    FGridColWidth.Add( Col_Width_Button2_R ); // 관리2
+  end
+end;
+
+procedure TGridInfoItem.Load(AIniFile: TIniFile);
+var
+  i, cnt, w : Integer;
+begin
+  if not AIniFile.SectionExists( FGridInfoID ) then
+  begin // 처리 대상 session이 파일에 없다. 초기값을 설정 한다.
+    initGridInfo( FGridInfoID );
+    exit;
+  end;
+
+  SortType := AIniFile.ReadInteger(FGridInfoID, 'sorttype', Sort_time_Descending);
+  FGridColWidth.Clear;
+  cnt := AIniFile.ReadInteger(FGridInfoID, 'widthcount', 0);
+  if cnt <= 0 then
+    exit;
+  for i := 1 to cnt do
+  begin
+    w := AIniFile.ReadInteger(FGridInfoID, 'width' + inttostr(i), DefaultGridColWidth);
+    FGridColWidth.Add( w );
+  end;
+end;
+
+procedure TGridInfoItem.Save(AIniFile: TIniFile);
+var
+  i : Integer;
+begin
+  AIniFile.WriteInteger(FGridInfoID, 'sorttype', SortType);
+
+  AIniFile.WriteInteger(FGridInfoID, 'widthcount', FGridColWidth.Count);
+
+  for i := 1 to FGridColWidth.Count do
+    AIniFile.WriteInteger(FGridInfoID, 'width' + inttostr(i), GridColWidths[i-1] );
+end;
+
+procedure TGridInfoItem.SetGridInfo(var ATargetSortType : Integer; ATargetGrid : TStringGrid);
+var
+  i : Integer;
+begin
+  ATargetSortType := SortType;
+
+  for i := 0 to ATargetGrid.ColCount -1 do
+    ATargetGrid.ColWidths[ i ] := GridColWidths[ i ];
+end;
+
+{ TGridInfoList }
+
+function TGridInfoList.AddGridInfo(AGridInfoID: string): TGridInfoItem;
+var
+  index : Integer;
+begin
+  index := FList.IndexOf( AGridInfoID );
+  if index < 0 then
+    index := FList.AddObject(AGridInfoID, TGridInfoItem.Create( AGridInfoID ) );
+
+  Result := GridInfos[ index ];
+end;
+
+procedure TGridInfoList.Clear;
+var
+  i : Integer;
+begin
+  for i := Count -1 downto 0 do
+    Delete( i );
+  FList.Clear;
+end;
+
+constructor TGridInfoList.Create;
+begin
+  FList := TStringList.Create;
+  FList.Duplicates := dupError;
+  FList.Sorted := True;
+
+  RegisterGridInfo;
+end;
+
+procedure TGridInfoList.Delete(AIndex: Integer);
+var
+  o : TObject;
+begin
+  o := FList.Objects[ AIndex ];
+  FList.Objects[ AIndex ] := nil;
+  FList.Delete( AIndex );
+  FreeAndNil( o );
+end;
+
+destructor TGridInfoList.Destroy;
+begin
+  Clear;
+  FreeAndNil( FList );
+  inherited;
+end;
+
+function TGridInfoList.GetCount: integer;
+begin
+  Result := FList.Count;
+end;
+
+function TGridInfoList.GetGridInfo(AGridInfoID: string): TGridInfoItem;
+var
+  index : Integer;
+begin
+  Result := nil;
+  index := FList.IndexOf( AGridInfoID );
+  if index >= 0 then
+    Result := GridInfos[ index ];
+end;
+
+function TGridInfoList.GetGridInfos(AIndex: Integer): TGridInfoItem;
+begin
+  Result := nil;
+  if FList.Count <= AIndex then
+    exit;
+  Result := TGridInfoItem( FList.Objects[ AIndex ] );  
+end;
+
+procedure TGridInfoList.Load(AIniFile: TIniFile);
+var
+  i : Integer;
+begin
+  for i := 0 to count -1 do
+  begin
+    GridInfos[ i ].Load( AIniFile );
+  end;
+end;
+
+procedure TGridInfoList.RegisterGridInfo;
+begin
+  AddGridInfo( Grid_Information_RnR_ID ); // 홈/접수 grid
+  AddGridInfo( Grid_Information_Reception_ID ); // 홈/접수 grid
+  AddGridInfo( Grid_Information_Reservation_ID ); // 홈/예약 grid
+
+  AddGridInfo( Grid_Information_ReservationMonthReq_ID ); // 일/예약요청 grid
+  AddGridInfo( Grid_Information_ReservationMonth_ID ); // 일/예약확정 grid
+
+  AddGridInfo( Grid_Information_ReservationListReq_ID ); // 월/예약요청 grid
+  AddGridInfo( Grid_Information_ReservationList_ID ); // 월/예약확정 grid
+end;
+
+procedure TGridInfoList.Save(AIniFile: TIniFile);
+var
+  i : Integer;
+begin
+  for i := 0 to count -1 do
+    GridInfos[ i ].Save( AIniFile );
+end;
+
+initialization
+  GRREnv := nil;
+
+finalization
+  if Assigned( GRREnv ) then
+    FreeAndNil( GRREnv );
+end.

@@ -1,0 +1,96 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{0196FF05-A3FE-422E-8E92-8D9CF347B72B}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="..\ChartEmul_v3\ChartEmul_v3.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\..\GDReceptionReservation.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\..\..\..\03.TestCode\날자_DPI test\DateTest.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\..\..\..\03.TestCode\GDMsgDlgNone Test\GDMsgDlgNoneTest.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\..\..\..\03.TestCode\TMemo에서 Texthint 기능 test\MemoTextHintTest.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\..\..\Utility\ChatViewer\GDChatRR.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="ChartEmul_v3">
+        <MSBuild Projects="..\ChartEmul_v3\ChartEmul_v3.dproj"/>
+    </Target>
+    <Target Name="ChartEmul_v3:Clean">
+        <MSBuild Projects="..\ChartEmul_v3\ChartEmul_v3.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ChartEmul_v3:Make">
+        <MSBuild Projects="..\ChartEmul_v3\ChartEmul_v3.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="GDReceptionReservation">
+        <MSBuild Projects="..\..\GDReceptionReservation.dproj"/>
+    </Target>
+    <Target Name="GDReceptionReservation:Clean">
+        <MSBuild Projects="..\..\GDReceptionReservation.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="GDReceptionReservation:Make">
+        <MSBuild Projects="..\..\GDReceptionReservation.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="DateTest">
+        <MSBuild Projects="..\..\..\..\03.TestCode\날자_DPI test\DateTest.dproj"/>
+    </Target>
+    <Target Name="DateTest:Clean">
+        <MSBuild Projects="..\..\..\..\03.TestCode\날자_DPI test\DateTest.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DateTest:Make">
+        <MSBuild Projects="..\..\..\..\03.TestCode\날자_DPI test\DateTest.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="GDMsgDlgNoneTest">
+        <MSBuild Projects="..\..\..\..\03.TestCode\GDMsgDlgNone Test\GDMsgDlgNoneTest.dproj"/>
+    </Target>
+    <Target Name="GDMsgDlgNoneTest:Clean">
+        <MSBuild Projects="..\..\..\..\03.TestCode\GDMsgDlgNone Test\GDMsgDlgNoneTest.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="GDMsgDlgNoneTest:Make">
+        <MSBuild Projects="..\..\..\..\03.TestCode\GDMsgDlgNone Test\GDMsgDlgNoneTest.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="MemoTextHintTest">
+        <MSBuild Projects="..\..\..\..\03.TestCode\TMemo에서 Texthint 기능 test\MemoTextHintTest.dproj"/>
+    </Target>
+    <Target Name="MemoTextHintTest:Clean">
+        <MSBuild Projects="..\..\..\..\03.TestCode\TMemo에서 Texthint 기능 test\MemoTextHintTest.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MemoTextHintTest:Make">
+        <MSBuild Projects="..\..\..\..\03.TestCode\TMemo에서 Texthint 기능 test\MemoTextHintTest.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="GDChatRR">
+        <MSBuild Projects="..\..\..\Utility\ChatViewer\GDChatRR.dproj"/>
+    </Target>
+    <Target Name="GDChatRR:Clean">
+        <MSBuild Projects="..\..\..\Utility\ChatViewer\GDChatRR.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="GDChatRR:Make">
+        <MSBuild Projects="..\..\..\Utility\ChatViewer\GDChatRR.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="ChartEmul_v3;GDReceptionReservation;DateTest;GDMsgDlgNoneTest;MemoTextHintTest;GDChatRR"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="ChartEmul_v3:Clean;GDReceptionReservation:Clean;DateTest:Clean;GDMsgDlgNoneTest:Clean;MemoTextHintTest:Clean;GDChatRR:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="ChartEmul_v3:Make;GDReceptionReservation:Make;DateTest:Make;GDMsgDlgNoneTest:Make;MemoTextHintTest:Make;GDChatRR:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

@@ -1,0 +1,98 @@
+object ReceptionReservationBaseForm: TReceptionReservationBaseForm
+  Left = 0
+  Top = 0
+  Caption = 'ReceptionReservationBaseForm'
+  ClientHeight = 973
+  ClientWidth = 433
+  Color = clBtnFace
+  DoubleBuffered = True
+  Font.Charset = ANSI_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -13
+  Font.Name = #44404#47548
+  Font.Style = []
+  OldCreateOrder = False
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Panel1: TPanel
+    Left = 32
+    Top = 32
+    Width = 321
+    Height = 873
+    BevelOuter = bvNone
+    ParentColor = True
+    TabOrder = 0
+    object BottomSplitter: TSplitter
+      Left = 0
+      Top = 873
+      Width = 321
+      Height = 0
+      Cursor = crVSplit
+      Align = alTop
+      Color = clGradientInactiveCaption
+      ParentColor = False
+      ExplicitTop = 481
+    end
+    object BottomPanel: TPanel
+      Left = 0
+      Top = 873
+      Width = 321
+      Height = 0
+      Align = alClient
+      BevelOuter = bvNone
+      Enabled = False
+      ParentColor = True
+      TabOrder = 0
+      Visible = False
+    end
+    object TopPanel: TPanel
+      Left = 0
+      Top = 0
+      Width = 321
+      Height = 873
+      Align = alTop
+      BevelOuter = bvNone
+      ParentColor = True
+      TabOrder = 1
+      object TopSplitter: TSplitter
+        Left = 0
+        Top = 435
+        Width = 321
+        Height = 3
+        Cursor = crVSplit
+        Align = alTop
+        Color = clGradientInactiveCaption
+        ParentColor = False
+        Visible = False
+        ExplicitTop = 400
+      end
+      object TopTopPanel: TPanel
+        Left = 0
+        Top = 0
+        Width = 321
+        Height = 435
+        Align = alTop
+        BevelOuter = bvNone
+        ParentColor = True
+        TabOrder = 0
+      end
+      object TopBottomPanel: TPanel
+        Left = 0
+        Top = 438
+        Width = 321
+        Height = 435
+        Align = alBottom
+        BevelOuter = bvNone
+        ParentColor = True
+        TabOrder = 1
+      end
+    end
+  end
+  object ResizeTimer: TTimer
+    Enabled = False
+    Interval = 10
+    OnTimer = ResizeTimerTimer
+    Left = 56
+    Top = 112
+  end
+end

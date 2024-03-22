@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899-12-30 00:00:00.000.166,=D:\200.Dev\Reception_pc_mng\03.Source\Common\GDJson.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.351,D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\gdbridgeTest.dfm=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\gdbridgeTestMain.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.465,=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\Unit1.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.917,=C:\Users\goodoc-p\Documents\Embarcadero\Studio\Projects\Unit2.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.094,=D:\200.Dev\Reception_pc_mng\03.Source\Common\Log\GDLog.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.351,D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\gdbridgeTest.pas=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\gdbridgeTestMain.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.793,=D:\200.Dev\Reception_pc_mng\03.Source\Common\GDThread.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.418,C:\Users\goodoc-p\Documents\Embarcadero\Studio\Projects\Project1.dproj=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\gdbridgeTest.dproj</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.110,=D:\200.Dev\Reception_pc_mng\03.Source\Common\UtilsUnit.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.859,=C:\Users\goodoc-p\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.486,=C:\Users\goodoc-p\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.160,C:\Users\goodoc-p\Documents\Embarcadero\Studio\Projects\Unit1.dfm=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\gdbridgeTest.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.101,=C:\Users\goodoc-p\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.160,C:\Users\goodoc-p\Documents\Embarcadero\Studio\Projects\Unit1.pas=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\gdbridgeTest.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.688,=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\Unit1.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.977,D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\Unit1.pas=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\Common\Comm\BridgeCommUnit.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.624,D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\Unit1.pas=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\Common\Bridge\BridgeDLL.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.671,=D:\200.Dev\Reception_pc_mng\03.Source\GDReceptionReservation\TestCode\gdbridge_ImportTest\Unit1.pas</Transaction>
+  </Transactions>
+</BorlandProject>

@@ -1,0 +1,615 @@
+unit SetEnv;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Dialogs,
+  RRObserverUnit, YSRConnStrManager, IPROConnStrManager, DentwebConnStrManager, HanaroConnStrManager;
+
+type
+  TSetEnvForm = class(TForm)
+    PageControl1: TPageControl;
+    TabSheet1: TTabSheet;
+    Panel1: TPanel;
+    Button1: TButton;
+    Button2: TButton;
+    StayOnTop_CheckBox: TCheckBox;
+    maxform_check: TCheckBox;
+    Panel2: TPanel;
+    leftposi_checkbox: TRadioButton;
+    RadioButton2: TRadioButton;
+    TabSheet2: TTabSheet;
+    Panel3: TPanel;
+    Label1: TLabel;
+    Label2: TLabel;
+    hospitalNo_Edit: TEdit;
+    chartid_Edit: TEdit;
+    TabSheet3: TTabSheet;
+    roominfo_update_btn: TButton;
+    cancelmsg_update_btn: TButton;
+    Label3: TLabel;
+    TabSheet4: TTabSheet;
+    chart_set_combobox: TComboBox;
+    Label4: TLabel;
+    Label5: TLabel;
+    chart_dbconn_info: TMemo;
+    Button3: TButton;
+    Button4: TButton;
+    cb_findPatient: TCheckBox;
+    TabSheet5: TTabSheet;
+    Label6: TLabel;
+    cb_showopt_room: TCheckBox;
+    cb_showopt_regnum: TCheckBox;
+    cb_showopt_create_time: TCheckBox;
+    cb_showopt_reservation_time: TCheckBox;
+    cb_showopt_Symptom: TCheckBox;
+    cb_showopt_State: TCheckBox;
+    cb_showopt_isFirst: TCheckBox;
+    TabSheet6: TTabSheet;
+    NHButton: TButton;
+    OHButton: TButton;
+    HookResult: TLabel;
+    procedure FormShow(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure roominfo_update_btnClick(Sender: TObject);
+    procedure cancelmsg_update_btnClick(Sender: TObject);
+    procedure OnChangeChartSet(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
+    procedure Button4Click(Sender: TObject);
+    procedure cb_findPatientClick(Sender: TObject);
+    procedure NewinsertTest(Sender: TObject);
+    procedure NewinsertCheck(Sender: TObject);
+
+
+  private
+    { Private declarations }
+    FObserver : TRRObserver;
+    procedure SetUI;
+    procedure SetChartDBConnInfo;
+    procedure SetButton;
+    procedure SetShowOptions;
+  public
+    { Public declarations }
+    constructor Create( AOwner : TComponent ); override;
+    destructor Destroy; override;
+  end;
+
+var
+  SetEnvForm: TSetEnvForm;
+
+implementation
+uses
+  EventIDConst, RREnvUnit, RRConst, OCSHookLoader, OCSHookAPI;
+
+{$R *.dfm}
+
+procedure TSetEnvForm.Button1Click(Sender: TObject);
+var
+  env : TRREnv;
+begin
+  FObserver.BeforeAction( OB_Event_Env_Change );
+  try
+    env := GetRREnv;
+
+    env.fsStayOnTop := StayOnTop_CheckBox.Checked;
+    env.fsMaxForm := maxform_check.Checked;
+    env.fsFormMaxPositionLeft := leftposi_checkbox.Checked;
+
+    env.HospitalID := hospitalNo_Edit.Text;
+    env.ChartCode := StrToIntDef( chartid_Edit.Text, DefaultChartCode );
+
+    env.HookOCSType := THookOCSType(chart_set_combobox.ItemIndex);
+    env.ChartDBConnectionString := chart_dbconn_info.Text;
+    env.IsFindPatientEnabled := cb_findPatient.Checked;
+
+    env.ShowOptionRoom := cb_showopt_room.Checked;
+    env.ShowOptionRegNum := cb_showopt_regnum.Checked;
+    env.ShowOptionCreationTime := cb_showopt_create_time.Checked;
+    env.ShowOptionReservationTime := cb_showopt_reservation_time.Checked;
+    env.ShowOptionSymptom := cb_showopt_Symptom.Checked;
+    env.ShowOptionisFirst := cb_showopt_isFirst.Checked;
+    env.ShowOptionState := cb_showopt_State.Checked;
+
+    env.Save;
+  finally
+    FObserver.AfterAction( OB_Event_Env_Change );
+    FObserver.AfterAction(OB_Event_DataRefresh_RR);    // 설정 저장시 접수된 환자없어도 항목 변경되도록 추가
+  end;
+
+  ModalResult := mrOk;
+end;
+
+(*
+후킹모듈 unload에서 충돌. 불필요한 기능이라 삭제
+procedure TSetEnvForm.Button3Click(Sender: TObject);
+
+  function GetDBServerIP( AConnStr : string ) : string;
+  var
+    cl : string;
+    sl : TStringList;
+  begin
+    Result := '';
+
+    sl := TStringList.Create;
+    try
+      sl.Delimiter := ';';
+      sl.DelimitedText := AConnStr;
+
+      cl := sl.Values['CommLinks'];
+
+      if cl = '' then
+        exit;
+
+      cl := StringReplace(cl, '{', ',', [rfReplaceAll]);
+      cl := StringReplace(cl, '}', ',', [rfReplaceAll]);
+
+      sl.CommaText := cl;
+      Result := sl.Values['host'];
+    finally
+      FreeAndNil( sl );
+    end;
+  end;
+  function GetDBServerEngineName( AConnStr : string ) : string;
+  var
+    en : string;
+    sl : TStringList;
+  begin
+    Result := '';
+
+    sl := TStringList.Create;
+    try
+      sl.Delimiter := ';';
+      sl.DelimitedText := AConnStr;
+
+      en := sl.Values['EngineName'];
+
+      if en = '' then
+        exit;
+
+      Result := en;
+    finally
+      FreeAndNil( sl );
+    end;
+  end;
+
+var
+  OCSHookLoader : TOCSHookDLLLoader;
+
+  str : string;
+begin
+  chart_dbconn_info.Text := '';
+
+  OCSHookLoader := GetOCSHookLoader;
+  OCSHookLoader.OCSType := TOCSType(chart_set_combobox.ItemIndex);
+  OCSHookLoader.Load;
+  OCSHookLoader.Init;
+
+  str := OCSHookLoader.GetConnectionString;
+  if str <> '' then
+  begin
+    FYSRConnMng.SetConnStr(str);
+    chart_dbconn_info.Text := FYSRConnMng.ConnectionString;
+  end
+  else
+  begin
+    ShowGDMsgDlg(HookOCSNames[THookOCSType(chart_set_combobox.ItemIndex)] + ' 차트접수프로그램을 재구동해주세요.', GetTransFormHandle, mtInformation, [mbOK]);
+  end;
+
+  if OCSHookLoader.isOCSHookDLLLoad then
+  begin
+    OCSHookLoader.Stop;
+    OCSHookLoader.Unload;
+  end;
+end;
+*)
+
+procedure TSetEnvForm.Button3Click(Sender: TObject);
+var
+  selected: Integer;
+
+  ipro : TIPROConnStrManager;
+  dentweb : TDentwebConnStrManager;
+  hanaro : THanaroConnStrManager;
+begin
+  // load default local dbconectionstring
+  selected := chart_set_combobox.ItemIndex;
+
+  if selected = Ord(THookOCSType.IPro) then
+  begin
+    ipro := TIPROConnStrManager.Create(nil);
+    try
+      chart_dbconn_info.Text := ipro.BaseLocalConnectionString;
+    finally
+      FreeAndNil(ipro);
+    end;
+  end
+  else if selected = Ord(THookOCSType.Dentweb) then
+  begin
+    dentweb := TDentwebConnStrManager.Create(nil);
+    try
+      chart_dbconn_info.Text := dentweb.BaseLocalConnectionString;
+    finally
+      FreeAndNil(dentweb);
+    end;
+  end;
+
+end;
+
+procedure TSetEnvForm.Button4Click(Sender: TObject);
+var
+  selected : Integer;
+
+  ipro : TIPROConnStrManager;
+  dentweb : TDentwebConnStrManager;
+  hanaro : THanaroConnStrManager;
+begin
+  // load default remote dbconectionstring
+  selected := chart_set_combobox.ItemIndex;
+
+  if selected = Ord(THookOCSType.IPro) then
+  begin
+    ipro := TIPROConnStrManager.Create(nil);
+    try
+      chart_dbconn_info.Text := ipro.BaseRemoteConnectionString;
+    finally
+      FreeAndNil(ipro);
+    end;
+  end
+  else if selected = Ord(THookOCSType.Dentweb) then
+  begin
+    dentweb := TDentwebConnStrManager.Create(nil);
+    try
+      chart_dbconn_info.Text := dentweb.BaseRemoteConnectionString;
+    finally
+      FreeAndNil(dentweb);
+    end;
+  end;
+
+end;
+
+procedure TSetEnvForm.cancelmsg_update_btnClick(Sender: TObject);
+begin
+  // 취소 메시지 목록
+  FObserver.BeforeAction( OB_Event_Reload_CancelMessage );
+  FObserver.AfterAction( OB_Event_Reload_CancelMessage );
+end;
+
+procedure TSetEnvForm.cb_findPatientClick(Sender: TObject);
+var
+  env : TRREnv;
+begin
+  env := GetRREnv;
+
+  env.IsFindPatientEnabled := cb_findPatient.Checked;
+
+  SetChartDBConnInfo;
+  SetButton;
+end;
+
+constructor TSetEnvForm.Create(AOwner: TComponent);
+begin
+  inherited;
+  FObserver := TRRObserver.Create( nil );
+{$ifdef DEBUG}
+  cancelmsg_update_btn.Visible := True;
+{$endif}
+end;
+
+destructor TSetEnvForm.Destroy;
+begin
+  FreeAndNil( FObserver );
+  inherited;
+end;
+
+procedure TSetEnvForm.FormShow(Sender: TObject);
+begin
+  SetUI;
+
+  FormStyle := Application.MainForm.FormStyle;
+end;
+
+procedure TSetEnvForm.OnChangeChartSet(Sender: TObject);
+var
+  isRel : Boolean;
+begin
+  if chart_set_combobox.ItemIndex = Ord(GetRREnv.HookOCSType) then
+    Label5.Visible := False
+  else
+    Label5.Visible := True;
+
+  isRel := (chart_set_combobox.ItemIndex <> 0);
+
+  SetChartDBConnInfo;
+  SetButton;
+end;
+
+procedure TSetEnvForm.roominfo_update_btnClick(Sender: TObject);
+begin
+  // 진료실 목록
+  FObserver.BeforeAction( OB_Event_Reload_RoomInfo );
+  FObserver.AfterAction( OB_Event_Reload_RoomInfo );
+end;
+
+procedure TSetEnvForm.SetUI;
+var
+  act : Boolean;
+  env : TRREnv;
+  I: Integer;
+begin
+  env := GetRREnv;
+
+  act := GetRREnv.LoginOk;
+  roominfo_update_btn.Enabled := act;
+  cancelmsg_update_btn.Enabled := act;
+
+  Label3.Caption := '병원 관리자 사이트에서 추가/삭제된' +#13#10 + '진료실 목록를 업데이트 합니다.';
+
+
+  StayOnTop_CheckBox.Checked := env.fsStayOnTop;
+  maxform_check.Checked := env.fsMaxForm;
+  leftposi_checkbox.Checked := env.fsFormMaxPositionLeft;
+  RadioButton2.Checked := not leftposi_checkbox.Checked;
+
+  hospitalNo_Edit.Text := env.HospitalID;
+  chartid_Edit.Text := inttostr( env.ChartCode );
+
+  for I := 0 to Length(HookOCSNames)-1 do
+  begin
+    chart_set_combobox.AddItem(HookOCSNames[THookOCSType(I)], nil);
+  end;
+  chart_set_combobox.ItemIndex := Ord(env.HookOCSType);
+  cb_findPatient.Checked := env.IsFindPatientEnabled;
+
+  SetChartDBConnInfo;
+  SetButton;
+
+  Label5.Visible := False;
+
+  SetShowOptions;
+end;
+
+procedure TSetEnvForm.SetChartDBConnInfo;
+var
+  env : TRREnv;
+  selected : integer;
+
+  ysr : TYSRConnStrManager;
+  ipro : TIPROConnStrManager;
+  dentweb : TDentwebConnStrManager;
+  hanaro : THanaroConnStrManager;
+begin
+  env := GetRREnv;
+  selected := chart_set_combobox.ItemIndex;
+
+  if selected = Ord(THookOCSType.YSR) then
+  begin
+    ysr := TYSRConnStrManager.Create(nil);
+    try
+      if ysr.ReadRegistry then
+        chart_dbconn_info.Text := ysr.ConnectionString
+      else
+        chart_dbconn_info.Text := 'DB접속정보가 없습니다.';
+    finally
+      FreeAndNil(ysr);
+    end;
+    chart_dbconn_info.Visible := cb_findPatient.Checked;
+    chart_dbconn_info.ReadOnly := true;
+  end
+  else if selected = Ord(THookOCSType.IPro) then
+  begin
+    ipro := TIPROConnStrManager.Create(nil);
+    try
+      chart_dbconn_info.Text := env.ChartDBConnectionString;
+    finally
+      FreeAndNil(ipro);
+    end;
+    chart_dbconn_info.Visible := cb_findPatient.Checked;
+    chart_dbconn_info.ReadOnly := false;
+  end
+  else if selected = Ord(THookOCSType.Dentweb) then
+  begin
+    dentweb := TDentwebConnStrManager.Create(nil);
+    try
+      chart_dbconn_info.Text := env.ChartDBConnectionString;
+    finally
+      FreeAndNil(dentweb);
+    end;
+    chart_dbconn_info.Visible := cb_findPatient.Checked;
+    chart_dbconn_info.ReadOnly := false;
+  end
+  else if selected = Ord(THookOCSType.Hanaro) then
+  begin
+    hanaro := THanaroConnStrManager.Create(nil);
+    try
+      if hanaro.ReadRegistry then
+        chart_dbconn_info.Text := hanaro.ConnectionString
+      else
+        chart_dbconn_info.Text := 'DB접속정보가 없습니다.';
+    finally
+      FreeAndNil(hanaro);
+    end;
+    chart_dbconn_info.Visible := cb_findPatient.Checked;
+    chart_dbconn_info.ReadOnly := true;
+  end
+  else
+  begin
+    chart_dbconn_info.Visible := false;
+    chart_dbconn_info.ReadOnly := true;
+  end;
+
+end;
+
+procedure TSetEnvForm.SetButton;
+var
+  selected : Integer;
+begin
+  selected := chart_set_combobox.ItemIndex;
+
+  if selected = Ord(THookOCSType.YSR) then
+  begin
+    Button3.Visible := false;
+    Button4.Visible := false;
+  end
+  else if selected = Ord(THookOCSType.IPro) then
+  begin
+    Button3.Visible := cb_findPatient.Checked;
+    Button4.Visible := cb_findPatient.Checked;
+  end
+  else if selected = Ord(THookOCSType.Dentweb) then
+  begin
+    Button3.Visible := cb_findPatient.Checked;
+    Button4.Visible := cb_findPatient.Checked;
+  end
+  else if selected = Ord(THookOCSType.Hanaro) then
+  begin
+    Button3.Visible := false;
+    Button4.Visible := false;
+  end
+  else
+  begin
+    Button3.Visible := false;
+    Button4.Visible := false;
+  end;
+end;
+
+procedure TSetEnvForm.SetShowOptions;
+var
+  env : TRREnv;
+begin
+  env := GetRREnv;
+
+  cb_showopt_room.Checked := env.ShowOptionRoom;
+  cb_showopt_regnum.Checked := env.ShowOptionRegNum;
+  cb_showopt_create_time.Checked := env.ShowOptionCreationTime;
+  cb_showopt_reservation_time.Checked := env.ShowOptionReservationTime;
+  cb_showopt_Symptom.Checked := env.ShowOptionSymptom;
+  cb_showopt_isFirst.Checked := env.ShowOptionisFirst;
+  cb_showopt_State.Checked := env.ShowOptionState;
+
+
+end;
+
+
+procedure TSetEnvForm.NewinsertCheck(Sender: TObject);
+
+//var
+//  ret : integer;
+//  retStr : string;
+//  patientdata : TREQPATIENTINFO;
+//  pdata : PREQPATIENTINFO;
+//  atmp : AnsiString;
+//  ocshook : TOCSHookDLLLoader;
+//  env : TRREnv;
+
+begin
+
+    try
+    finally
+      FObserver.AfterAction( OB_Event_Hook_Check_all );
+    end;
+
+//
+//
+//  ocshook := GetOCSHookLoader;
+//
+//  if ocshook.OCSType = TOCSType.None then
+//  exit;
+//
+//  ret := ocshook.Check;
+//  retStr := ocshook.GetOCSErrorMessage(ret);
+//  if retStr <> '' then
+//  begin
+//    //MessageDlg(retStr, mtInformation, [mbOK], 0, mbOK);
+//
+//    try
+//    finally
+//      FObserver.AfterAction( OB_Event_Hook_Check );
+//    end;
+//  end;
+//  exit;
+
+end;
+
+procedure TSetEnvForm.NewinsertTest(Sender: TObject);
+var
+  ret : integer;
+  retStr : string;
+  patientdata : TREQPATIENTINFO;
+  pdata : PREQPATIENTINFO;
+  atmp : AnsiString;
+  ocshook : TOCSHookDLLLoader;
+  env : TRREnv;
+
+begin
+  ocshook := GetOCSHookLoader;
+
+  if ocshook.OCSType = TOCSType.None then
+  exit;
+
+  FillChar(patientdata, sizeof(TREQPATIENTINFO), 0);
+
+  patientdata.unFirstVisit := 1;
+
+//  if GetRREnv.IsFindPatientEnabled then
+//  begin
+//    if AData.isFirst then
+//      patientdata.unFirstVisit := 1
+//    else
+//      patientdata.unFirstVisit := 0;
+//  end
+//  else
+//    patientdata.unFirstVisit := 2;
+
+  //patientdata.unID := StrToInt(FShowData.ChartReceptnResultId.Id1);
+  atmp := AnsiString( '1234556789' );
+  Move(atmp[1], patientdata.szID, Length(atmp)); // patientdata.szID := AData.GetCharReceptnResultId;
+  atmp := AnsiString( '123456789' );
+  Move(atmp[1], patientdata.szCNo, Length(atmp)); // patientdata.szCNo := AData.PatientChartID;
+  atmp := AnsiString( 'memo' );
+  Move(atmp[1], patientdata.szMemo, Length(atmp)); // patientdata.szMemo := AData.Memo;
+  patientdata.unSex := Cardinal('1');
+  atmp := AnsiString( '더미후킹' );
+  Move(atmp[1], patientdata.szName, Length(atmp)); // patientdata.szName := AData.PatientName;
+  atmp := AnsiString('주소주소');
+  Move(atmp[1], patientdata.szAddress, Length(atmp)); // patientdata.szAddress := AData.Addr;
+
+  atmp := AnsiString( '상세주소' );
+  Move(atmp[1], patientdata.szAddressDetail, Length(atmp)); // patientdata.szAddress := AData.AddrDetail;
+
+  atmp := AnsiString( '12345' );
+  Move(atmp[1], patientdata.szZip, Length(atmp)); // patientdata.szzip := AData.zip;
+
+  atmp := AnsiString( '9011122000000' );
+  Move(atmp[1], patientdata.szSocialNum, Length(atmp)); // patientdata.szSocialNum := AData.Registration_number;
+  atmp := AnsiString( '01000000000' );
+  Move(atmp[1], patientdata.szCellPhone, Length(atmp)); // patientdata.szCellPhone := AData.CellPhone;
+  atmp := AnsiString( '19901112' );
+  Move(atmp[1], patientdata.szBirthday, Length(atmp)); // patientdata.szBirthday := AData.BirthDay;
+  atmp := AnsiString( '상담실' );
+  Move(atmp[1], patientdata.szRoom, Length(atmp)); // patientdata.szRoom := AData.RoomInfo.RoomName;
+  pdata := @patientdata;
+
+//  AddLog( doRunLog, '승인 처리 : ' + IntToStr(patientdata.unID) );
+  ret := ocshook.InsertPatient( pdata );
+//  AddLog( doRunLog, '승인 처리 결과 : ' + IntToStr(ret) );
+
+  if ret = 0 then
+  begin
+    // 요청 성공. data lock
+
+  end
+  else
+  begin
+    // 요청 실패
+    retStr := ocshook.GetOCSErrorMessage(ret);
+    if retStr <> '' then
+    begin
+    MessageDlg(retStr, mtInformation, [mbOK], 0, mbOK);
+      //ShowGDMsgDlg(retStr, GetTransFormHandle, mtInformation, [mbOK]);
+    end;
+  end;
+
+end;
+
+end.

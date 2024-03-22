@@ -1,0 +1,1388 @@
+unit RRGridDrawUnit;
+
+interface
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
+  Vcl.Graphics, Vcl.Grids, RnRData;
+
+type
+  TGridDataType = (gdtRequest, gdtReception, gdtReservation);              // 접수 type, 예약/접수
+
+  TCustomGridListDrawCell = class
+  private
+    { Private declarations }
+    FListGrid: TStringGrid;
+    FOldDrawCellEvent : TDrawCellEvent;
+    FSelectColor: TColor;
+    FLineColor: TColor;
+    FGridDataType: TGridDataType;
+    procedure SetListGrid(const Value: TStringGrid);
+  protected
+    { protected declarations }
+    //grid component에 등록되어 있는 event를 실행 시킨다.
+    procedure doUserDrawCellEvent(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState);
+
+    procedure ListDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState); virtual;
+  public
+    { Public declarations }
+    // data의 상태에 따른 상태값을 string으로 만든다.
+    function GetState( AData : TRnRData ) : string;
+    function GetState_DeviceType( AData : TRnRData ) : string; // device type까지 포함하여 상태값 출력
+    function GetState_FontColor( AData: TRnRData ) : TColor; // 상태에 따른 font color를 반환 한다.
+
+    // fixed영역에 text를 출력 한다.
+    procedure FixedCell( AGrid : TStringGrid; ACol, ARow: Integer; ARect: TRect );
+    // 지정된 영역에 text를 출력 한다.
+    procedure DrawCenterText(AGrid : TStringGrid; ARect: TRect; AText : string);
+    // 지정된 영역에 text를 출력 한다.
+    procedure DrawLeftText(AGrid : TStringGrid; ARect: TRect; AText : string);
+    // 지정된 영역에 text를 출력 한다.
+    procedure DrawRightText(AGrid : TStringGrid; ARect: TRect; AText : string);
+
+    // 지정된 영역에 여러줄의 text를 출력 한다.
+    procedure DrawTopCenterText(AGrid : TStringGrid; ARect: TRect; AText : string);
+
+    // 지정된 영역에 text를 출력 한다. 이름 출력 style
+    procedure DrawCenterTextNameStyle(AGrid : TStringGrid; ARect: TRect; AText : string);
+
+    // grid에 메모표시를 위한 삼각형 그리기
+    procedure triangleDraw( AGrid : TStringGrid; ARect : TRect );
+
+    function Col_Index_State : integer;
+    function Col_Index_PatientName : integer;
+    function Col_Index_Room : integer;
+    function Col_Index_BirthDayRegNum : integer;
+    function Col_Index_Time : integer;
+    function Col_Index_Time2 : integer;
+    function Col_Index_Button1 : integer;
+    function Col_Index_Button2 : integer;
+    function Col_Index_Symptom : integer;
+  public
+    { Public declarations }
+    constructor Create; virtual;
+    destructor Destroy; override;
+
+    // 출력할 hint를 생성 한다.
+    function makeHint( AData : TRnRData ) : string; virtual;
+
+    property ListGrid : TStringGrid read FListGrid write SetListGrid;
+    property SelectColor : TColor read FSelectColor write FSelectColor;
+    property LineColor : TColor read FLineColor write FLineColor;
+    property GridDataType : TGridDataType read FGridDataType write FGridDataType;  // 접수 기본값
+  end;
+
+  TNormalGridListDrawCell = class(TCustomGridListDrawCell)
+  private
+    { Private declarations }
+  protected
+    { protected declarations }
+    procedure ListDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState); override;
+  public
+    { Public declarations }
+  public
+    { Public declarations }
+    constructor Create; override;
+    destructor Destroy; override;
+  end;
+
+  TGridListDrawCell = class(TCustomGridListDrawCell)
+  private
+    { Private declarations }
+  protected
+    { protected declarations }
+    procedure ListDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState); override;
+  public
+    { Public declarations }
+    // 출력할 hint를 생성 한다.
+    function makeHint( AData : TRnRData ) : string; override;
+  public
+    { Public declarations }
+    constructor Create; override;
+    destructor Destroy; override;
+  end;
+
+  // 예약/접수 목록 출력시 사용됨
+  TRRGridListDrawCell = class(TCustomGridListDrawCell)
+  private
+    { Private declarations }
+  protected
+    { protected declarations }
+    procedure ListDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState); override;
+  public
+    { Public declarations }
+  public
+    { Public declarations }
+    constructor Create; override;
+    destructor Destroy; override;
+  end;
+
+  // 예약 목록 출력시 사용됨
+  TReservationGridListDrawCell = class(TCustomGridListDrawCell)
+  private
+    { Private declarations }
+  protected
+    { protected declarations }
+    procedure ListDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState); override;
+  public
+    { Public declarations }
+    // 출력할 hint를 생성 한다.
+    function makeHint( AData : TRnRData ) : string;  override;
+  public
+    { Public declarations }
+    constructor Create; override;
+    destructor Destroy; override;
+  end;
+
+  TCancelMsgGridDrawCell = class(TCustomGridListDrawCell)
+  private
+    { Private declarations }
+  protected
+    { protected declarations }
+    procedure ListDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState); override;
+  public
+    { Public declarations }
+    // 출력할 hint를 생성 한다.
+  public
+    { Public declarations }
+    constructor Create; override;
+    destructor Destroy; override;
+  end;
+
+
+  TMonthGridDrawCell = class(TCustomGridListDrawCell)
+  private
+    { Private declarations }
+    FDay: TDate;
+    // 출력되는 cell이 오늘 날자 data인지 확인 한다.
+    function checkToDay( ACol, ARow : Integer ) : Boolean;
+  protected
+    { protected declarations }
+    procedure ListDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState); override;
+  public
+    { Public declarations }
+    property Day : TDate read FDay write FDay;
+  public
+    { Public declarations }
+    constructor Create; override;
+    destructor Destroy; override;
+
+    // 날자로 col, row를 계산 한다.
+    procedure CalcDate2ColRow( ADate : TDate; var ACol, ARow : Integer );
+  end;
+
+const  // 출력 cell의 index값
+  Col7_Index_State             = 0; //상태
+  Col7_Index_PatientName       = 1; //이름
+  Col7_Index_Room              = 2; // 진료실
+  Col7_Index_BirthDayRegNum    = 3; //생년월일/주민번호
+  Col7_Index_Symptom           = 4; //내원목적
+  Col7_Index_Time              = 5; // 예약/접수시간, 접수 시간, 예약 시간
+  Col7_Index_Button1           = 6; // 1번 버튼
+  Col7_Index_Button2           = 7; // 2번 버튼
+
+const  // 예약용 출력 cell의 index값
+  Col8_Index_State             = 0; //상태
+  Col8_Index_PatientName       = 1; //이름
+  Col8_Index_Room              = 2; // 진료실
+  Col8_Index_BirthDayRegNum    = 3; //생년월일/주민번호
+  Col8_Index_Symptom           = 4; //내원목적
+  Col8_Index_Time              = 5; // 예약요청시간
+  Col8_Index_Time2             = 6; // 예약시간
+  Col8_Index_Button1           = 7; // 1번 버튼
+  Col8_Index_Button2           = 8; // 2번 버튼
+
+const  // 달력 출력 cell의 width
+  Col_Width_Month_Holiday = 40;
+  Col_Index_일            = 0;
+  Col_Index_월            = 1;
+  Col_Index_화            = 2;
+  Col_Index_수            = 3;
+  Col_Index_목            = 4;
+  Col_Index_금            = 5;
+  Col_Index_토            = 6;
+
+const  // 거부/취소 메시지 grid정보
+  Col_Width_RadioBox      = 25;
+  Col_Index_RadioBox      = 0;
+  Col_Index_Message       = 1;
+
+const // 목록에 출력할 header값
+  Grid_Head_상태            = '"상태"';
+{$ifdef _BirthDayShow_}
+  Grid_Head_생일_주번       = '"생년월일"';
+{$else}
+  Grid_Head_생일_주번       = '"주민번호"';
+{$endif}
+  Grid_Head_관리            = '"관리"';
+
+  Grid_Head_내원목적        = '"내원목적"';
+
+
+implementation
+uses
+  System.UITypes,
+  dateutils, strutils, UtilsUnit,
+  RRConst, gdlog;
+
+var
+  GridDataTypeMessage : array [TGridDataType] of string = ('요청된 환자가 없습니다.', '접수 확정된 환자가 없습니다.','예약 확정된 환자가 없습니다.');
+
+{ TCustomGridListDrawCell }
+
+constructor TCustomGridListDrawCell.Create;
+begin
+  FSelectColor := clYellow;
+  FLineColor := clSilver;
+  FGridDataType := gdtRequest;
+  FOldDrawCellEvent := nil;
+  FListGrid := nil;
+end;
+
+destructor TCustomGridListDrawCell.Destroy;
+begin
+  ListGrid := nil;
+
+  inherited;
+end;
+
+procedure TCustomGridListDrawCell.doUserDrawCellEvent(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState);
+begin
+  if Assigned(FOldDrawCellEvent) then
+  begin
+    FOldDrawCellEvent(Sender, ACol, ARow, Rect, State);
+  end;
+end;
+
+procedure TCustomGridListDrawCell.DrawCenterText(AGrid: TStringGrid;
+  ARect: TRect; AText: string);
+begin
+  AGrid.Canvas.TextRect(ARect, AText, [tfCenter, tfVerticalCenter, tfSingleLine, tfEndEllipsis]);
+end;
+
+procedure TCustomGridListDrawCell.DrawTopCenterText(AGrid: TStringGrid;
+  ARect: TRect; AText: string);
+begin
+  AGrid.Canvas.TextRect(ARect, AText, [tfCenter]);
+end;
+
+procedure TCustomGridListDrawCell.DrawCenterTextNameStyle(AGrid: TStringGrid;
+  ARect: TRect; AText: string);
+begin
+  AGrid.Canvas.Font.Style := [fsBold, fsUnderline];
+  DrawCenterText( AGrid, ARect, AText );
+  AGrid.Canvas.Font.Style := [];
+end;
+
+procedure TCustomGridListDrawCell.DrawLeftText(AGrid: TStringGrid; ARect: TRect;
+  AText: string);
+begin
+  ARect.Left := ARect.Left + 4;
+  AGrid.Canvas.TextRect(ARect, AText, [tfLeft, tfVerticalCenter, tfSingleLine, tfEndEllipsis]);
+end;
+
+procedure TCustomGridListDrawCell.DrawRightText(AGrid: TStringGrid;
+  ARect: TRect; AText: string);
+begin
+  ARect.Right := ARect.Right + -2;
+  AGrid.Canvas.TextRect(ARect, AText, [tfRight, tfVerticalCenter, tfSingleLine, tfEndEllipsis]);
+end;
+
+procedure TCustomGridListDrawCell.FixedCell(AGrid: TStringGrid; ACol,
+  ARow: Integer; ARect: TRect);
+var
+  fs : TFontStyles;
+  str : string;
+begin
+  // 바탕색 칠하기
+  AGrid.Canvas.Brush.Color := AGrid.FixedColor;
+  AGrid.Canvas.FillRect( ARect );
+
+  // 테두리 그리기
+  AGrid.Canvas.Rectangle( ARect );
+
+  // text 출력
+  fs := AGrid.Canvas.Font.Style;
+  str := AGrid.Cells[ ACol, ARow ];
+  // Include(AGrid.Canvas.Font.Style, fsBold);
+  AGrid.Canvas.Font.Style := [ fsBold ];
+  DrawCenterText(AGrid, ARect, str);
+  AGrid.Canvas.Font.Style := fs;
+end;
+
+function TCustomGridListDrawCell.GetState(AData: TRnRData): string;
+// data의 상태에 따른 상태값을 string으로 만든다.
+begin
+  Result := TRRDataTypeConvert.RnRDataStatus2DispStr( AData.DataType, AData.접수확정, AData.Status );
+end;
+
+function TCustomGridListDrawCell.GetState_DeviceType(AData: TRnRData): string;
+begin
+  Result := TRRDataTypeConvert.RnRDataStatus2DispStr( AData.DataType, AData.접수확정, AData.Status, AData.Inflow);
+end;
+
+function TCustomGridListDrawCell.GetState_FontColor( AData: TRnRData ): TColor;
+const
+  SC_무인 = $000000FF;
+  SC_접수 = $0090CF37;
+  SC_예약 = $00FF7B00;
+  SC_완료 = $00BB6317;
+
+begin
+  Result := clBlack;
+
+  case AData.Status of
+    rrs예약요청,
+    rrs접수요청 : // Status_접수요청 = 'C01';
+      begin
+        if AData.DataType = rrReception then
+        begin
+          Result := SC_접수;
+          if AData.Inflow = rriftablet then
+            Result := SC_무인;
+        end
+        else
+          Result := SC_예약;
+      end;
+    rrs진료완료 :
+      begin
+        Result := SC_완료;
+      end;
+  end;
+end;
+
+procedure TCustomGridListDrawCell.ListDrawCell(Sender: TObject; ACol,
+  ARow: Integer; Rect: TRect; State: TGridDrawState);
+begin
+//  TStringGrid(Sender).Canvas.Font.Assign( TStringGrid(Sender).Font );
+end;
+
+function TCustomGridListDrawCell.makeHint(AData: TRnRData): string;
+var
+  lHint : string;
+
+  procedure appendhint( AStr : string );
+  begin
+    if lHint <> '' then
+      lHint := lHint + #13#10;
+    lHint := lHint + AStr;
+  end;
+
+var
+  BeforeConfirmation : Boolean;
+  canceltitle : string;
+begin
+  lHint := '';
+  try
+    if not Assigned( AData ) then
+      exit;
+    if not (AData is TRnRData) then
+      exit; // AData가 TRnRData로 형변환이 않되면 처리하지 않는다.
+
+    BeforeConfirmation := AData.hsptlreceptndttm <> 0; // 접수/예약 확정 일시
+
+    with AData do
+    begin
+      if Canceled  then
+      begin  // 취소 상태
+        case AData.Status of
+          rrs예약실패 : canceltitle := '예약 취소';
+          rrs접수실패 : canceltitle := '접수 취소';
+          rrs병원취소 :
+            begin
+              if BeforeConfirmation then
+                canceltitle := '병원 취소' // 확정 후
+              else
+              begin // 확정 전
+                if AData.DataType = rrReception then
+                  canceltitle := '접수 거부'
+                else
+                  canceltitle := '예약 거부';
+              end;
+            end;
+          rrs본인취소 :
+            begin
+              if BeforeConfirmation then
+                canceltitle := '환자 철회' // 확정 후
+              else
+                canceltitle := '환자 취소'; // 확정 전
+            end;
+        else // rrs자동취소
+          // canceltitle := '자동 취소';
+          canceltitle := '만료';
+        end;
+
+        appendhint( canceltitle );
+        appendhint( FormatDateTime('yyyy-mm-dd hh:nn:ss', CancelDT) );
+        if AData.CanceledMessage <> '' then
+          appendhint( AData.CanceledMessage );
+
+      end
+      else
+      begin
+        if Registration_number <> '' then
+          appendhint( Format('주민번호 : %s',[ DisplayRegistrationNumber( Registration_number ) ]))
+        else
+          appendhint( Format('생년월일 : %s',[ DisplayBirthDay( BirthDay ) ]));
+        appendhint( Format('내원목적 : %s',[Symptom]));
+      end;
+    end;
+  finally
+    Result := lHint;
+  end;
+end;
+
+procedure TCustomGridListDrawCell.SetListGrid(const Value: TStringGrid);
+begin
+  if (not Assigned(Value) ) and Assigned( FListGrid ) then
+  begin
+    FListGrid.DefaultDrawing := True;
+    FListGrid.OnDrawCell := FOldDrawCellEvent;
+  end;
+
+  FListGrid := Value;
+  if Assigned( FListGrid ) then
+  begin
+    FOldDrawCellEvent := FListGrid.OnDrawCell;
+    FListGrid.DefaultDrawing := False;
+    FListGrid.OnDrawCell := ListDrawCell;
+  end;
+end;
+
+
+procedure TCustomGridListDrawCell.triangleDraw(AGrid : TStringGrid; ARect: TRect);
+var
+  c : TColor;
+  triangle : array [0..2] of TPoint;
+begin
+  c := AGrid.Canvas.Brush.Color;
+  try
+    AGrid.Canvas.Brush.Color := clRed;
+    triangle[0].X := ARect.Left;
+    triangle[0].y := ARect.Top;
+
+    triangle[1].X := ARect.Left;
+    triangle[1].y := ARect.Top + 7;
+
+    triangle[2].X := ARect.Left + 7;
+    triangle[2].y := ARect.Top;
+
+    AGrid.Canvas.Polygon( triangle );
+  finally
+    AGrid.Canvas.Brush.Color := c;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_State;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_State;
+  end
+  else
+  begin
+    Result := Col7_Index_State;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_PatientName;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_PatientName;
+  end
+  else
+  begin
+    Result := Col7_Index_PatientName;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_Room;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_Room;
+  end
+  else
+  begin
+    Result := Col7_Index_Room;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_BirthDayRegNum;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_BirthDayRegNum;
+  end
+  else
+  begin
+    Result := Col7_Index_BirthDayRegNum;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_Time;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_Time;
+  end
+  else
+  begin
+    Result := Col7_Index_Time;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_Time2;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_Time2;
+  end
+  else
+  begin
+    Result := -1;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_Button1;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_Button1;
+  end
+  else
+  begin
+    Result := Col7_Index_Button1;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_Button2;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_Button2;
+  end
+  else
+  begin
+    Result := Col7_Index_Button2;
+  end;
+end;
+
+function TCustomGridListDrawCell.Col_Index_Symptom;
+begin
+  if GridDataType = gdtRequest then // column count : 8
+  begin
+    Result := Col8_Index_Symptom;
+  end
+  else
+  begin
+    Result := Col7_Index_Symptom;
+  end;
+end;
+
+{ TGridListDrawCell }
+
+constructor TGridListDrawCell.Create;
+begin
+  inherited;
+end;
+
+destructor TGridListDrawCell.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TGridListDrawCell.ListDrawCell(Sender: TObject; ACol, ARow: Integer;
+  Rect: TRect; State: TGridDrawState);
+var
+  i : integer;
+  s : TStringGrid;
+  c : Integer;
+  backcolor : TColor;
+  rowdata : TRnRData;
+
+  workrect, r1 : TRect;
+  str : string;
+
+  oldfontcolor : TColor;
+
+begin
+  inherited ListDrawCell(Sender, ACol, ARow, Rect, State);
+
+  try
+    s := TStringGrid( Sender );
+    s.Canvas.Font.Assign( s.Font ); // font
+    s.Canvas.Pen.Width := 1;
+    s.Canvas.Pen.Color := FLineColor; // line
+    c := ACol;
+    workrect := Rect;
+    backcolor := s.Color;
+
+    if ACol in [Col_Index_Button1, Col_Index_Button2] then
+    begin
+      c := Col_Index_Button1;
+      workrect := s.CellRect(Col_Index_Button1, ARow);
+      r1 := s.CellRect(Col_Index_Button2, ARow);
+      workrect := TRect.Union(workrect, r1);
+      workrect.Right := workrect.Right -1;
+    end;
+
+    workrect.Right := workrect.Right +1;
+    if s.RowCount <> ARow + 1 then  // 마지막 row의 data이다.
+      workrect.Bottom := workrect.Bottom +1;
+
+    if ARow = 0 then
+    begin // fixed 영역이다.
+      FixedCell( s, c, ARow, workrect );
+      exit;
+    end;
+
+    if gdSelected  in State then
+      backcolor := FSelectColor;
+
+    s.Canvas.Brush.Color := backcolor;
+    //s.Canvas.FillRect( workrect );
+    s.Canvas.Rectangle( workrect );
+
+    rowdata := TRnRData( s.Objects[Col_Index_Data, ARow] );
+    if not Assigned( rowdata ) then
+    begin  // 출력 data가 없다.
+      if (s.RowCount = 2) and (ARow = 1) then
+      begin
+        for i := 0 to s.ColCount -1 do
+        begin
+          r1 := s.CellRect(i, ARow);
+          workrect := TRect.Union(workrect, r1);
+        end;
+        s.Canvas.Rectangle( workrect );
+        str := GridDataTypeMessage[ GridDataType ];
+        DrawCenterText(s, workrect, str);
+      end;
+      exit;
+    end;
+
+    oldfontcolor := s.Canvas.Font.Color;
+    if rowdata.Canceled then
+      s.Canvas.Font.Color := clSilver
+    else if rowdata.Status = rrs진료완료 then
+            s.Canvas.Font.Color := GetState_FontColor( rowdata )
+    else
+    begin
+      if ACol = Col_Index_State then
+        s.Canvas.Font.Color := GetState_FontColor( rowdata );
+    end;
+
+    if ACol = Col_Index_State then // 상태
+    begin
+      str := GetState( rowdata );
+      if rowdata.isFirst then
+        str := '(초)'+str;
+      DrawCenterText(s, workrect, str);
+    end
+    else if ACol = Col_Index_PatientName then //이름
+    begin
+      str := rowdata.PatientName;
+      case rowdata.Gender of
+        rrgtMale    : str := str + '(남)';
+        rrgtFemale  : str := str + '(여)';
+      end;
+      DrawCenterTextNameStyle(s, workrect, str);
+
+      // 메모가 있으면 이름 한쪽에 빨간색 삼각형을 표시 한다.
+      if rowdata.Memo <> '' then
+        triangleDraw( s, Rect );
+    end
+    else if ACol = Col_Index_Room then // 진료실 이름
+    begin
+      str := rowdata.RoomInfo.RoomName;
+      DrawCenterText(s, workrect, str);
+    end
+    else if ACol = Col_Index_BirthDayRegNum then //생년월일
+    begin
+{$ifdef _BirthDayShow_}
+      str := rowdata.DispBirthDay; // yy-mm-dd
+{$else}
+      str := rowdata.DispRegistration_number; // xxxxxx-xxxxxxx
+{$endif}
+      DrawCenterText(s, workrect, str);
+    end
+    else if ACol = Col_Index_Time then  // 예약/접수시간, 접수 시간, 예약 시간
+    begin
+      if GridDataType = gdtRequest then
+        str := FormatDateTime('mm/dd hh:nn', rowdata.RegisterDT)
+      else
+        str := FormatDateTime('mm/dd hh:nn', rowdata.VisitDT);
+      DrawCenterText(s, workrect, str);
+    end
+    else if ACol = Col_Index_Time2 then // 예약시간
+    begin
+      str := FormatDateTime('mm/dd hh:nn',rowdata.VisitDT);
+      DrawCenterText(s, workrect, str);
+    end
+    else if ACol = Col_Index_Symptom then // 내원목적
+    begin
+     str := '목적' + rowdata.Symptom;
+     DrawCenterText(s, workrect, str);
+    end;
+
+  except
+    on e : exception do
+    begin
+      AddExceptionLog('TGridListDrawCell.ListDrawCell', e);
+      raise e;
+    end;
+  end;
+
+  doUserDrawCellEvent(Sender, ACol, ARow, Rect, State);
+
+  s.Canvas.Font.Color := oldfontcolor;
+end;
+
+
+function TGridListDrawCell.makeHint(AData: TRnRData): string;
+begin
+  Result := inherited makeHint( AData );
+end;
+
+{ TMonthGridDrawCell }
+
+procedure TMonthGridDrawCell.CalcDate2ColRow(ADate: TDate; var ACol,
+  ARow: Integer);
+var
+  y, m, d : Word;
+
+  d1 : TDate;
+  d2 : Integer;
+begin
+  decodedate(ADate, y, m, d);
+  d1 := EncodeDate(y, m, 1);
+  d2 := DayOfWeek( d1 ) + d;
+  ARow := (d2 div 7) + 1;
+
+  ACol := DayOfWeek( ADate ) -1;
+  if ACol >= 5 then
+    dec( ARow );
+end;
+
+function TMonthGridDrawCell.checkToDay(ACol, ARow: Integer): Boolean;
+var
+  y, m, d2 : Word;
+  c, r : Integer;
+  d, sd, ed : TDateTime;
+
+  d1 : TDate;
+  d3 : Integer;
+begin
+  Result := False;
+  CalcRangeMonth( FDay, sd, ed );  // 지정된 월의 시작/마지막 일자
+  d := Now;
+
+  if not CheckRangeDateTime(d, sd, ed) then
+    exit; // 오늘이 포함되지 않은 달을 출력 하고 있다.
+
+(*  c := DayOfWeek( d ) -1;
+  decodedate(d, y, m, d2);
+
+  r := ((d2 + (6-c) ) div 7);
+  r := r + 1; // 요일 title출력하는 row는 자동으로 증가 시켜야 한다 *)
+
+  decodedate(d, y, m, d2);
+  d1 := EncodeDate(y, m, 1);
+  d3 := DayOfWeek( d1 ) + d2;
+  r := (d3 div 7) + 1;
+
+  c := DayOfWeek( d ) -1;
+  if c >= 5 then
+    dec( r );
+
+  if (r = ARow) and (c = ACol) then
+    Result := True;
+end;
+
+constructor TMonthGridDrawCell.Create;
+begin
+  inherited;
+  FDay := today;
+end;
+
+destructor TMonthGridDrawCell.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TMonthGridDrawCell.ListDrawCell(Sender: TObject; ACol, ARow: Integer;
+  Rect: TRect; State: TGridDrawState);
+var
+  s : TStringGrid;
+  data : TMonthData;
+  backcolor, oldfontcolor : TColor;
+  fs : TFontStyles;
+  workrect, rect1 : TRect;
+  str : string;
+  isHoliday : Boolean;
+begin
+  inherited ListDrawCell(Sender, ACol, ARow, Rect, State);
+
+  s := TStringGrid( Sender );
+  s.Canvas.Font.Assign( s.Font ); // font
+  s.Canvas.Pen.Width := 1;
+  s.Canvas.Pen.Color := FLineColor; // line
+  workrect := Rect;
+  backcolor := s.Color;
+
+  workrect.Right := workrect.Right +1;
+  if s.RowCount <> ARow + 1 then  // 마지막 row의 data이다.
+    workrect.Bottom := workrect.Bottom +1;
+
+  if ACol = s.ColCount-1 { 6 } then
+  begin
+    workrect.Right := workrect.Right -1;
+  end;
+
+  if ARow = 0 then
+  begin // fixed 영역이다.
+    FixedCell( s, ACol, ARow, workrect );
+    exit;
+  end;
+
+  if gdSelected  in State then
+    backcolor := FSelectColor;
+
+  s.Canvas.Brush.Color := backcolor;
+  if checkToDay(ACol, ARow) then
+  begin // 오늘 표시
+    rect1 := workrect;
+    s.Canvas.Pen.Width := 3;
+    s.Canvas.Pen.Color := clGreen;
+
+    rect1.Left := rect1.Left + 1;
+    rect1.Top := rect1.Top + 1;
+    rect1.Bottom := rect1.Bottom - s.Canvas.Pen.Width +1;
+    rect1.Right := rect1.Right - s.Canvas.Pen.Width +1;
+
+    s.Canvas.Rectangle(rect1);
+    s.Canvas.Pen.Width := 1;
+  end
+  else
+    s.Canvas.Rectangle( workrect );
+
+  workrect.Top := workrect.Top + 5;
+  data := TMonthData( s.Objects[ACol, ARow] );
+  if not Assigned( data ) then
+  begin  // data가 없다.
+    str := s.Cells[ACol, ARow];
+    isHoliday := ACol in [0, 6];
+
+    oldfontcolor := s.Canvas.Font.Color;
+    if isHoliday then
+    begin
+      if ACol = 0 then
+        s.Canvas.Font.Color := clRed  // 일요일
+      else
+        s.Canvas.Font.Color := clBlue; // 토요일
+    end
+    else
+      s.Canvas.Font.Color := clSilver;
+
+    DrawTopCenterText(s, workrect, str);
+
+    s.Canvas.Font.Color := oldfontcolor;
+    exit;
+  end;
+
+  isHoliday := data.Holiday;
+
+  oldfontcolor := s.Canvas.Font.Color;
+  if isHoliday then
+  begin
+    if ACol = 0 then
+      s.Canvas.Font.Color := clRed  // 일요일
+    else
+      s.Canvas.Font.Color := clBlue; // 토요일
+  end
+  else if (data.CancelFinishCount = 0) and (data.DecideCount = 0) and (data.RequestCount = 0) then
+    s.Canvas.Font.Color := clSilver; // data가 없다.
+
+  str := data.Caption;
+  rect1 := workrect;
+  rect1.Bottom := rect1.Top + 20;
+  DrawTopCenterText(s, workrect, str); // 일자 출력
+
+  if (data.DecideCount > 0) or (data.RequestCount > 0) then
+  begin // 예약 data가 있다.
+    str := format('%d/%d명',[data.DecideCount, data.RequestCount]);
+    rect1 := workrect;
+    rect1.Top := rect1.Top + 20;
+    fs := s.Canvas.Font.Style;
+    try
+      s.Canvas.Font.Style := [ fsBold ];
+      DrawTopCenterText(s, rect1, str); // 예약 data의 count값을 출력 한다.
+    finally
+      s.Canvas.Font.Style := fs;
+    end;
+  end;
+
+  doUserDrawCellEvent(Sender, ACol, ARow, Rect, State);
+
+  s.Canvas.Font.Color := oldfontcolor;
+end;
+
+{ TCancelMsgGridDrawCell }
+
+constructor TCancelMsgGridDrawCell.Create;
+begin
+  inherited;
+
+end;
+
+destructor TCancelMsgGridDrawCell.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TCancelMsgGridDrawCell.ListDrawCell(Sender: TObject; ACol,
+  ARow: Integer; Rect: TRect; State: TGridDrawState);
+var
+  s : TStringGrid;
+//  c : Integer;
+  backcolor : TColor;
+  rowdata : TCancelMsgData;
+
+  workrect : TRect;
+  str : string;
+
+  oldfontcolor : TColor;
+begin
+  inherited ListDrawCell(Sender, ACol, ARow, Rect, State);
+
+  s := TStringGrid( Sender );
+  s.Canvas.Font.Assign( s.Font ); // font
+  s.Canvas.Pen.Width := 1;
+  s.Canvas.Pen.Color := FLineColor; // line
+//  c := ACol;
+  workrect := Rect;
+  backcolor := s.Color;
+
+  if s.ColCount <> ACol + 1 then  // 마지막 col의 data이다.
+  workrect.Right := workrect.Right +1;
+
+  if s.RowCount <> ARow + 1 then  // 마지막 row의 data이다.
+    workrect.Bottom := workrect.Bottom +1;
+
+(* fixed영역이 없어짐
+  if ARow = 0 then
+  begin // fixed 영역이다.
+    FixedCell( s, c, ARow, workrect );
+    exit;
+  end; *)
+
+  if gdSelected  in State then
+    backcolor := FSelectColor;
+
+  s.Canvas.Brush.Color := backcolor;
+  //s.Canvas.Rectangle( workrect ); // line있음
+  s.Canvas.FillRect( workrect );  // line없음
+
+  rowdata := TCancelMsgData( s.Objects[Col_Index_Data, ARow] );
+  if not Assigned( rowdata ) then
+    exit; // 출력 data가 없다.
+
+  oldfontcolor := s.Canvas.Font.Color;
+
+  case ACol of
+    Col_Index_Message : // 메시지 출력
+      begin
+        str := rowdata.Caption;
+        DrawLeftText(s, workrect, str);
+      end;
+  end;
+
+  doUserDrawCellEvent(Sender, ACol, ARow, Rect, State);
+
+  s.Canvas.Font.Color := oldfontcolor;
+end;
+
+
+{ TNormalGridListDrawCell }
+
+constructor TNormalGridListDrawCell.Create;
+begin
+  inherited;
+
+end;
+
+destructor TNormalGridListDrawCell.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TNormalGridListDrawCell.ListDrawCell(Sender: TObject; ACol,
+  ARow: Integer; Rect: TRect; State: TGridDrawState);
+var
+  s : TStringGrid;
+  c : Integer;
+  backcolor : TColor;
+
+  workrect, r1 : TRect;
+  str : string;
+
+  oldfontcolor : TColor;
+begin
+  inherited ListDrawCell(Sender, ACol, ARow, Rect, State);
+
+  s := TStringGrid( Sender );
+  s.Canvas.Font.Assign( s.Font ); // font
+  s.Canvas.Pen.Width := 1;
+  s.Canvas.Pen.Color := FLineColor; // line
+  c := ACol;
+  workrect := Rect;
+  backcolor := s.Color;
+
+  if ACol in [Col_Index_Button1, Col_Index_Button2] then
+  begin
+    c := Col_Index_Button1;
+    workrect := s.CellRect(Col_Index_Button1, ARow);
+    r1 := s.CellRect(Col_Index_Button2, ARow);
+    workrect := TRect.Union(workrect, r1);
+    workrect.Right := workrect.Right -1;
+  end;
+
+  workrect.Right := workrect.Right +1;
+  if s.RowCount <> ARow + 1 then  // 마지막 row의 data이다.
+    workrect.Bottom := workrect.Bottom +1;
+
+  if ARow = 0 then
+  begin // fixed 영역이다.
+    FixedCell( s, c, ARow, workrect );
+    exit;
+  end;
+
+  if gdSelected  in State then
+    backcolor := FSelectColor;
+
+  s.Canvas.Brush.Color := backcolor;
+  //s.Canvas.FillRect( workrect );
+  s.Canvas.Rectangle( workrect );
+
+  str := trim( s.Cells[ACol, ARow] );
+  if str = '' then
+    exit;
+
+  oldfontcolor := s.Canvas.Font.Color;
+  DrawLeftText(s, workrect, str);
+
+  doUserDrawCellEvent(Sender, ACol, ARow, Rect, State);
+
+  s.Canvas.Font.Color := oldfontcolor;
+end;
+
+{ TReservationGridListDrawCell }
+
+constructor TReservationGridListDrawCell.Create;
+begin
+  inherited;
+
+end;
+
+destructor TReservationGridListDrawCell.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TReservationGridListDrawCell.ListDrawCell(Sender: TObject; ACol,
+  ARow: Integer; Rect: TRect; State: TGridDrawState);
+var
+  i : Integer;
+  s : TStringGrid;
+  c : Integer;
+  backcolor : TColor;
+  rowdata : TRnRData;
+
+  workrect, r1 : TRect;
+  str : string;
+
+  oldfontcolor : TColor;
+begin
+  inherited ListDrawCell(Sender, ACol, ARow, Rect, State);
+
+  s := TStringGrid( Sender );
+  s.Canvas.Font.Assign( s.Font ); // font
+  s.Canvas.Pen.Width := 1;
+  s.Canvas.Pen.Color := FLineColor; // line
+  c := ACol;
+  workrect := Rect;
+  backcolor := s.Color;
+
+  if ACol in [Col_Index_Button1, Col_Index_Button2] then
+  begin
+    c := Col_Index_Button1;
+    workrect := s.CellRect(Col_Index_Button1, ARow);
+    r1 := s.CellRect(Col_Index_Button2, ARow);
+    workrect := TRect.Union(workrect, r1);
+    workrect.Right := workrect.Right -1;
+  end;
+
+  workrect.Right := workrect.Right +1;
+  if s.RowCount <> ARow + 1 then  // 마지막 row의 data이다.
+    workrect.Bottom := workrect.Bottom +1;
+
+  if ARow = 0 then
+  begin // fixed 영역이다.
+    FixedCell( s, c, ARow, workrect );
+    exit;
+  end;
+
+  if gdSelected  in State then
+    backcolor := FSelectColor;
+
+  s.Canvas.Brush.Color := backcolor;
+  //s.Canvas.FillRect( workrect );
+  s.Canvas.Rectangle( workrect );
+
+  rowdata := TRnRData( s.Objects[Col_Index_Data, ARow] );
+  if not Assigned( rowdata ) then
+  begin // 출력 data가 없다.
+    if (s.RowCount = 2) and (ARow = 1) then
+    begin
+      for i := 0 to s.ColCount -1 do
+      begin
+        r1 := s.CellRect(i, ARow);
+        workrect := TRect.Union(workrect, r1);
+      end;
+      s.Canvas.Rectangle( workrect );
+      str := GridDataTypeMessage[ GridDataType ];
+      DrawCenterText(s, workrect, str);
+    end;
+    exit;
+  end;
+
+  oldfontcolor := s.Canvas.Font.Color;
+  if rowdata.Canceled then
+    s.Canvas.Font.Color := clSilver
+  else if rowdata.Status = rrs진료완료 then
+          s.Canvas.Font.Color := GetState_FontColor( rowdata )
+  else
+  begin
+    if ACol = Col_Index_State then
+      s.Canvas.Font.Color := GetState_FontColor( rowdata );
+  end;
+
+  if ACol = Col_Index_State then //상태
+  begin
+    str := GetState( rowdata );
+    if rowdata.isFirst then
+      str := '(초)'+str;
+    DrawCenterText(s, workrect, str);
+  end
+  else if ACol = Col_Index_PatientName then //이름
+  begin
+    str := rowdata.PatientName;
+    case rowdata.Gender of
+      rrgtMale    : str := str + '(남)';
+      rrgtFemale  : str := str + '(여)';
+    end;
+    DrawCenterTextNameStyle(s, workrect, str);
+
+    // 메모가 있으면 이름 한쪽에 빨간색 삼각형을 표시 한다.
+    if rowdata.Memo <> '' then
+      triangleDraw( s, Rect );
+  end
+  else if ACol = Col_Index_Room then  // 진료실 이름
+  begin
+    str := rowdata.RoomInfo.RoomName;
+    DrawCenterText(s, workrect, str);
+  end
+  else if ACol = Col_Index_BirthDayRegNum then //생년월일
+  begin
+{$ifdef _BirthDayShow_}
+    str := rowdata.DispBirthDay; // yy-mm-dd
+{$else}
+    str := rowdata.DispRegistration_number; // xxxxxx-xxxxxxx
+{$endif}
+    DrawCenterText(s, workrect, str);
+  end
+  else if ACol = Col_Index_Time then  // 예약/접수시간, 접수 시간, 예약 시간
+  begin
+    if GridDataType = gdtRequest then
+      str := FormatDateTime('mm/dd hh:nn', rowdata.RegisterDT)
+    else
+      str := FormatDateTime('mm/dd hh:nn', rowdata.VisitDT);
+    DrawCenterText(s, workrect, str);
+  end
+  else if ACol = Col_Index_Time2 then // 예약시간
+  begin
+    str := FormatDateTime('mm/dd hh:nn', rowdata.VisitDT);
+    DrawCenterText(s, workrect, str);
+  end;
+
+  doUserDrawCellEvent(Sender, ACol, ARow, Rect, State);
+
+  s.Canvas.Font.Color := oldfontcolor;
+end;
+
+function TReservationGridListDrawCell.makeHint(AData: TRnRData): string;
+begin
+  Result := inherited makeHint( AData );
+end;
+
+{ TRRGridListDrawCell }
+
+constructor TRRGridListDrawCell.Create;
+begin
+  inherited;
+
+end;
+
+destructor TRRGridListDrawCell.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TRRGridListDrawCell.ListDrawCell(Sender: TObject; ACol, ARow: Integer;
+  Rect: TRect; State: TGridDrawState);
+var
+  i : integer;
+  s : TStringGrid;
+  c : Integer;
+  backcolor : TColor;
+  rowdata : TRnRData;
+
+  workrect, r1 : TRect;
+  str : string;
+
+  oldfontcolor : TColor;
+begin
+  inherited ListDrawCell(Sender, ACol, ARow, Rect, State);
+
+  s := TStringGrid( Sender );
+  s.Canvas.Font.Assign( s.Font ); // font
+  s.Canvas.Pen.Width := 1;
+  s.Canvas.Pen.Color := FLineColor; // line
+  c := ACol;
+  workrect := Rect;
+  backcolor := s.Color;
+
+  if ACol in [Col_Index_Button1, Col_Index_Button2] then
+  begin
+    c := Col_Index_Button1;
+    workrect := s.CellRect(Col_Index_Button1, ARow);
+    r1 := s.CellRect(Col_Index_Button2, ARow);
+    workrect := TRect.Union(workrect, r1);
+    workrect.Right := workrect.Right -1;
+  end;
+
+  workrect.Right := workrect.Right +1;
+  if s.RowCount <> ARow + 1 then  // 마지막 row의 data이다.
+    workrect.Bottom := workrect.Bottom +1;
+
+  if ARow = 0 then
+  begin // fixed 영역이다.
+    FixedCell( s, c, ARow, workrect );
+    exit;
+  end;
+
+  if gdSelected  in State then
+    backcolor := FSelectColor;
+
+  s.Canvas.Brush.Color := backcolor;
+  //s.Canvas.FillRect( workrect );
+  s.Canvas.Rectangle( workrect );
+
+  rowdata := TRnRData( s.Objects[Col_Index_Data, ARow] );
+  if not Assigned( rowdata ) then
+  begin  // 출력 data가 없다.
+    if (s.RowCount = 2) and (ARow = 1) then
+    begin
+      for i := 0 to s.ColCount -1 do
+      begin
+        r1 := s.CellRect(i, ARow);
+        workrect := TRect.Union(workrect, r1);
+      end;
+      s.Canvas.Rectangle( workrect );
+      str := GridDataTypeMessage[ GridDataType ];
+      DrawCenterText(s, workrect, str);
+    end;
+    exit;
+  end;
+
+  oldfontcolor := s.Canvas.Font.Color;
+  if rowdata.Canceled then
+    s.Canvas.Font.Color := clSilver
+  else if rowdata.Status = rrs진료완료 then
+          s.Canvas.Font.Color := GetState_FontColor( rowdata )
+  else
+  begin
+    if ACol = Col_Index_State then
+      s.Canvas.Font.Color := GetState_FontColor( rowdata );
+  end;
+
+  if ACol = Col_Index_State then //상태
+  begin
+    // str := GetState( rowdata );
+    str := GetState_DeviceType( rowdata ); // device type까지 인지 하게 한다.
+    if rowdata.isFirst then
+      str := '(초)'+str;
+    DrawCenterText(s, workrect, str);
+  end
+  else if ACol = Col_Index_PatientName then //이름
+  begin
+    str := rowdata.PatientName;
+    case rowdata.Gender of
+      rrgtMale    : str := str + '(남)';
+      rrgtFemale  : str := str + '(여)';
+    end;
+    DrawCenterTextNameStyle(s, workrect, str);
+
+    // 메모가 있으면 이름 한쪽에 빨간색 삼각형을 표시 한다.
+    if rowdata.Memo <> '' then
+      triangleDraw( s, Rect );
+  end
+  else if ACol = Col_Index_Room then  // 진료실 이름
+  begin
+    str := rowdata.RoomInfo.RoomName;
+    DrawCenterText(s, workrect, str);
+  end
+  else if ACol = Col_Index_BirthDayRegNum then // 생일/주민번호
+  begin
+{$ifdef _BirthDayShow_}
+    str := rowdata.DispBirthDay; // yy-mm-dd
+{$else}
+    str := rowdata.DispRegistration_number; // xxxxxx-xxxxxxx
+{$endif}
+    DrawCenterText(s, workrect, str);
+  end
+  else if ACol = Col_Index_Time then  // 예약/접수시간, 접수 시간, 예약 시간
+  begin
+    if rowdata.DataType = rrReception then
+      str := FormatDateTime('mm/dd hh:nn', rowdata.VisitDT) // 접수
+    else
+      str := FormatDateTime('mm/dd hh:nn', rowdata.RegisterDT); // 예약
+
+    DrawCenterText(s, workrect, str);
+  end
+  else if ACol = Col_Index_Time2 then // 예약시간
+  begin
+    if rowdata.DataType = rrReception then
+      str := '-' //FormatDateTime('mm/dd hh:nn', rowdata.VisitDT) // 접수
+    else
+      str := FormatDateTime('mm/dd hh:nn', rowdata.VisitDT); // 예약
+      DrawCenterText(s, workrect, str);
+    end
+  else if ACol = Col_Index_Symptom then // 내원목적
+    begin
+     str := rowdata.Symptom;
+     DrawCenterText(s, workrect, str);
+  end;
+
+  doUserDrawCellEvent(Sender, ACol, ARow, Rect, State);
+
+  s.Canvas.Font.Color := oldfontcolor;
+end;
+
+end.

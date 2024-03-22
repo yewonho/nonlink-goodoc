@@ -1,0 +1,103 @@
+object ReceptionReservationBaseForm: TReceptionReservationBaseForm
+  Left = 0
+  Top = 0
+  Caption = 'ReceptionReservationBaseForm'
+  ClientHeight = 761
+  ClientWidth = 433
+  Color = clBtnFace
+  DoubleBuffered = True
+  Font.Charset = ANSI_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -13
+  Font.Name = #44404#47548
+  Font.Style = []
+  OldCreateOrder = False
+  OnResize = FormResize
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Panel1: TPanel
+    Left = 32
+    Top = 32
+    Width = 321
+    Height = 650
+    BevelOuter = bvNone
+    ParentColor = True
+    TabOrder = 0
+    OnResize = FormResize
+    object BottomSplitter: TSplitter
+      Left = 0
+      Top = 800
+      Width = 321
+      Height = 0
+      Cursor = crVSplit
+      Align = alTop
+      Color = clGradientInactiveCaption
+      ParentColor = False
+      ExplicitTop = 481
+    end
+    object BottomPanel: TPanel
+      Left = 0
+      Top = 800
+      Width = 321
+      Height = 73
+      Align = alClient
+      BevelOuter = bvNone
+      Enabled = False
+      ParentColor = True
+      TabOrder = 0
+      Visible = False
+      ExplicitTop = 873
+      ExplicitHeight = 0
+    end
+    object TopPanel: TPanel
+      Left = 0
+      Top = 0
+      Width = 321
+      Height = 800
+      Align = alTop
+      BevelOuter = bvNone
+      ParentColor = True
+      TabOrder = 1
+      object TopSplitter: TSplitter
+        Left = 0
+        Top = 435
+        Width = 321
+        Height = 3
+        Cursor = crVSplit
+        Align = alTop
+        Color = clGradientInactiveCaption
+        ParentColor = False
+        Visible = False
+        ExplicitTop = 400
+      end
+      object TopTopPanel: TPanel
+        Left = 0
+        Top = 0
+        Width = 321
+        Height = 435
+        Align = alTop
+        BevelOuter = bvNone
+        ParentColor = True
+        TabOrder = 0
+      end
+      object TopBottomPanel: TPanel
+        Left = 0
+        Top = 365
+        Width = 321
+        Height = 435
+        Align = alBottom
+        BevelOuter = bvNone
+        ParentColor = True
+        TabOrder = 1
+        ExplicitTop = 441
+      end
+    end
+  end
+  object ResizeTimer: TTimer
+    Enabled = False
+    Interval = 10
+    OnTimer = ResizeTimerTimer
+    Left = 56
+    Top = 112
+  end
+end

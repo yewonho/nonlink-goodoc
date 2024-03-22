@@ -1,0 +1,757 @@
+﻿unit GDReceptionReservationUnit;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
+  SakpungFormPositionMng, RRObserverUnit, Vcl.AppEvnts, SakpungImageButton, SakpungEdit,
+  Vcl.Menus, ImageResourceDMUnit, CapPaintPanel;
+
+type
+  TGDReceptionReservationForm = class(TForm)
+    Panel1: TCapPaintPanel;
+    Panel2: TPanel;
+    ApplicationEvents1: TApplicationEvents;
+    SakpungImageButton1: TSakpungImageButton;
+    PopupMenu1: TPopupMenu;
+    SetEnv_menu: TMenuItem;
+    Image1: TImage;
+    close_btn: TSakpungImageButton2;
+    maxstore_btn: TSakpungImageButton2;
+    min_btn: TSakpungImageButton2;
+    Bevel1: TBevel;
+    EnvShowTimer: TTimer;
+    N1: TMenuItem;
+    chat1_1_menu: TMenuItem;
+    menualdownload_menu: TMenuItem;
+    N2: TMenuItem;
+    debug_seq_line: TMenuItem;
+    N4: TMenuItem;
+    est1: TMenuItem;
+    Refresh1: TMenuItem;
+    N5: TMenuItem;
+    N6: TMenuItem;
+    N7: TMenuItem;
+    N8: TMenuItem;
+    logout_mn: TMenuItem;
+    N10: TMenuItem;
+    About1: TMenuItem;
+    debugfolder1: TMenuItem;
+    HookAliveTimer: TTimer;
+    procedure Panel1MouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure FormShow(Sender: TObject);
+    procedure ApplicationEvents1ModalBegin(Sender: TObject);
+    procedure ApplicationEvents1ModalEnd(Sender: TObject);
+    procedure SetEnv_menuClick(Sender: TObject);
+    procedure SakpungImageButton1Click(Sender: TObject);
+    procedure close_btnClick(Sender: TObject);
+    procedure maxstore_btnClick(Sender: TObject);
+    procedure min_btnClick(Sender: TObject);
+    procedure EnvShowTimerTimer(Sender: TObject);
+    procedure chat1_1_menuClick(Sender: TObject);
+    procedure menualdownload_menuClick(Sender: TObject);
+    procedure N2Click(Sender: TObject);
+    procedure N4Click(Sender: TObject);
+    procedure N6Click(Sender: TObject);
+    procedure N7Click(Sender: TObject);
+    procedure N10Click(Sender: TObject);
+    procedure logout_mnClick(Sender: TObject);
+    procedure ApplicationEvents1Activate(Sender: TObject);
+    procedure ApplicationEvents1Exception(Sender: TObject; E: Exception);
+    procedure About1Click(Sender: TObject);
+    procedure Refresh1Click(Sender: TObject);
+    procedure OnTimerHookAlive(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+  private
+    { Private declarations }
+    FFormPosiMng : TSakpungFormPositionMng;
+    FCheckEnvServer : Integer; // 0:Dev서버, 1: rc서버, 2:staging서버, 3:운영서버
+
+    procedure initButton; // window button의 image를 초기화 한다.
+    function CheckHospitalID : Boolean; // hospital id가 없으면 false을 반환 한다.
+    procedure WMGetMinMaxInfo(var Msg: TWMGetMinMaxInfo); message WM_GETMINMAXINFO;
+    procedure WMSysCommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
+    procedure CheckStaging;
+  private
+    { Private declarations }
+    FObserver : TRRObserver;
+    procedure BeforeEventNotify( AEventID : Cardinal; AData : TObserverData );
+    procedure AfterEventNotify( AEventID : Cardinal; AData : TObserverData );
+
+  private
+    { Private declarations }
+    isFirst : Boolean;
+    procedure OCSAliveEventNotify( AAlive : Boolean );
+    procedure OCSWaitListStateEventNotify( AWaitListID : string; AState : integer );
+    procedure LoadOCSDLL;
+    procedure UnloadOCSDLL( ALogout : Boolean );
+
+  protected
+    { protected declarations }
+    procedure CreateParams(var Params: TCreateParams); override;
+  public
+    { Public declarations }
+    constructor Create( AOwner : TComponent ); override;
+    destructor Destroy; override;
+  end;
+
+var
+  GDReceptionReservationForm: TGDReceptionReservationForm;
+
+implementation
+uses
+  Midaslib,
+  System.UITypes,
+  registry,
+  GDLog, UtilsUnit,
+  GDBridge,
+  RRDialogs, EventIDConst,
+  RREnvUnit, SetEnv, ChatViewerCtrl,
+// test용
+  RnRDMUnit, RnRData,
+// test완료
+  TranslucentFormUnit, LoginUnit, ReceptionReservationUnit,
+  RoomListMNG, CancelMsgListMNG, AboutUnit, RRNoticeUnit,
+  OCSHookAPI, OCSHookLoader, {RRDialogs}gd.GDMsgDlg_none, YSRConnStrManager, IPROConnStrManager
+  ;
+
+{$R *.dfm}
+
+procedure TGDReceptionReservationForm.About1Click(Sender: TObject);
+var
+  form : TAboutForm;
+begin
+  form := TAboutForm.Create( nil );
+  try
+    form.ShowModal;
+  finally
+    FreeAndNil( form );
+  end;
+
+end;
+
+procedure TGDReceptionReservationForm.AfterEventNotify(AEventID: Cardinal;
+  AData: TObserverData);
+begin
+  case AEventID of
+    OB_Event_LoginOk : // login 처리
+      begin
+        FObserver.BeforeAction(OB_Event_Init_ExpandCollapse);
+        FObserver.AfterAction(OB_Event_Init_ExpandCollapse);
+
+        UnvisibleLoginform; // login form 안보이게
+        ShowReceptionReservationForm; // 목록화면 보이게
+        logout_mn.Enabled := True;
+        AddLog(doRunLog, 'Login : ' + GetRREnv.HospitalID);
+
+        FObserver.BeforeAction( OB_Event_DataRefresh);
+        FObserver.AfterActionASync( OB_Event_DataRefresh);
+
+        // Hook on
+        LoadOCSDLL;
+      end;
+    OB_Event_1_1_Chat : // 1:1 채팅
+      chat1_1_menu.Click;
+    OB_Event_UserMenualDownLoad :  // 사용자 메뉴얼 download
+      menualdownload_menu.Click;
+    OB_Event_Env_Change : ; // GDMessageDlg('환경 변수 변경됨, 변경사항 처리 미결', mtInformation, [mbOK], 0);
+    OB_Event_LogoutOk : // logout 처리
+      begin
+        logout_mn.Enabled := False;
+        // login ui변경
+        UnvisibleReceptionReservationForm;
+        ShowLoginForm;
+
+        // Hook off
+        isFirst := True;
+        UnloadOCSDLL(true);
+
+        AddLog(doRunLog, 'Logout : ' + GetRREnv.HospitalID);
+      end;
+  end;
+end;
+
+procedure TGDReceptionReservationForm.ApplicationEvents1Activate(
+  Sender: TObject);
+begin
+  FormFlash( False );
+end;
+
+procedure TGDReceptionReservationForm.ApplicationEvents1Exception(
+  Sender: TObject; E: Exception);
+var
+  form : TCustomForm;
+  isshow : Boolean;
+begin
+  if Assigned( Sender ) then
+  begin
+    AddExceptionLog( '확인되지 않는 Exception', e );
+    AddLog( doErrorLog, Format('ClassName=%s',[Sender.ClassName]) );
+    AddLog( doErrorLog, Format('%s',[Sender.ToString]) );
+    if Sender is TComponent then
+    begin
+      AddLog( doErrorLog, Format('Component Name : %s',[TComponent(Sender).Name]) );
+    end;
+    if Sender is TControl then
+    begin
+      form := GetParentForm( TControl( Sender ) );
+      if Assigned(form) then
+        AddLog( doErrorLog, Format('Form Name : %s (%s)',[form.Name, form.ClassName]) );
+    end;
+
+  end
+  else
+  begin
+    AddExceptionLog( '확인되지 않는 Exception', e );
+  end;
+
+  isshow := CompareText( 'TApplication', Sender.ClassName ) <> 0;
+
+  if isshow then
+    MessageDlg(Format('확인되지 않는 Error가 발생하였습니다.' + #13#10 + '%s(%s)' ,[e.Message, e.ClassName]),mtError, [mbOK], 0);
+end;
+
+procedure TGDReceptionReservationForm.ApplicationEvents1ModalBegin(
+  Sender: TObject);
+begin
+  ShowTransForm;  // 반투명 form show
+end;
+
+procedure TGDReceptionReservationForm.ApplicationEvents1ModalEnd(
+  Sender: TObject);
+begin
+  CloseTransForm; //  반투명 form close
+end;
+
+procedure TGDReceptionReservationForm.BeforeEventNotify(AEventID: Cardinal;
+  AData: TObserverData);
+begin
+  case AEventID of
+    OB_Event_LogoutOk : // logout 처리
+      begin
+        GetRREnv.LoginOk := False;
+
+        // 전체 list받아오는 polling 처리 중지
+        FObserver.BeforeAction( OB_Event_400FireOff );
+        FObserver.AfterAction(OB_Event_400FireOff);
+
+        // 메모리 db 초기화
+        RnRDM.MakeTable;
+
+        // 관련 화면 갱신
+        FObserver.BeforeAction(OB_Event_DataRefresh);
+        FObserver.AfterAction(OB_Event_DataRefresh);
+      end;
+  end;
+end;
+
+procedure TGDReceptionReservationForm.chat1_1_menuClick(Sender: TObject);
+begin // 1:1채팅상담
+  // 채팅창 구동, 단 이미 구동 되어 있으면 구동시키지 않는다.
+  //GChatViewerControl.RunChatViewer4GDReceptionReservation;
+  // V4 채팅상담 기능 업그레이드
+  _BrowserOpen( 'https://booking-goodoc.channel.io/lounge' );
+end;
+
+function TGDReceptionReservationForm.CheckHospitalID: Boolean;
+begin // false이면 hospital id가 없는 것이다.
+  Result := GetRREnv.HospitalID <> '';
+end;
+
+procedure TGDReceptionReservationForm.CheckStaging;
+var
+  stype : Integer;
+  str : string;
+  reg : TRegistry;
+begin
+  reg := TRegistry.Create( KEY_READ or KEY_WOW64_64KEY );
+  try
+    reg.RootKey := HKEY_CURRENT_USER;
+    reg.OpenKey( 'Software\goodoc_v40', True );
+
+    stype := 3;
+
+    if reg.ValueExists('servertype') then
+    begin // 해당 key가 없다.
+      stype := reg.ReadInteger('servertype');
+    end;
+
+    FCheckEnvServer := stype; // 0:Dev서버, 1: rc서버, 2:staging서버, 3:운영서버
+
+    case stype of
+      0 : str := 'DEV';
+      1 : str := 'RC';
+      2 : str := 'STG';
+      3 : str := '';
+    else // 0, 1, 2 이외에는 모두 product로 인지 하게 한다.
+      //str := 'Product';
+      str := '';
+      FCheckEnvServer := 3;
+    end;
+
+    if str <> '' then
+      Panel1.Caption := Panel1.Caption + ' - ' + str;
+  finally
+    FreeAndNil( reg );
+  end;
+end;
+
+procedure TGDReceptionReservationForm.close_btnClick(Sender: TObject);
+begin
+  Close;
+end;
+
+constructor TGDReceptionReservationForm.Create(AOwner: TComponent);
+begin
+  inherited;
+  FCheckEnvServer := 3; // 운영서버
+  FObserver := TRRObserver.Create( nil );
+  FObserver.OnBeforeAction := BeforeEventNotify;
+  FObserver.OnAfterAction := AfterEventNotify;
+
+  FFormPosiMng := TSakpungFormPositionMng.Create( nil );
+  FFormPosiMng.MoniteringForm := self;
+
+  GetReceptionReservationForm.ShowLoginPanel( Panel2 );
+  GetLoginForm.ShowLoginPanel( Panel2 );
+
+  isFirst := True;
+
+{$ifdef DEBUG}
+  debug_seq_line.Visible := true; // 구분선
+  N2.Visible := true; // 진료실 목록
+  N4.Visible := true; // 취소 메시지 목록
+
+  est1.Visible := True;
+  Refresh1.Visible := True;
+  N5.Visible := True;
+  N6.Visible := True;
+{$endif}
+end;
+
+procedure TGDReceptionReservationForm.CreateParams(var Params: TCreateParams);
+begin
+  inherited;
+  Params.Style := Params.Style or WS_BORDER or WS_THICKFRAME;  // bsnone
+
+  Params.ExStyle := Params.ExStyle or WS_EX_APPWINDOW;
+  Params.WndParent := GetDesktopWindow;
+end;
+
+destructor TGDReceptionReservationForm.Destroy;
+begin
+  GetBridge.DeInit;
+
+  FreeAndNil( FFormPosiMng );
+  FreeAndNil( FObserver );
+
+  FreeLoginForm;
+  FreeReceptionReservationForm;
+
+  inherited;
+end;
+
+procedure TGDReceptionReservationForm.EnvShowTimerTimer(Sender: TObject);
+begin
+  EnvShowTimer.Enabled := False;
+  SetEnv_menu.Click; // 환경 설정 화면 실행
+
+  EnvShowTimer.Enabled := not CheckHospitalID;
+  if not EnvShowTimer.Enabled then
+    GetRREnv.Save;
+end;
+
+procedure TGDReceptionReservationForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  FFormPosiMng.Save;
+  GetRREnv.Save;
+end;
+
+procedure TGDReceptionReservationForm.FormDestroy(Sender: TObject);
+begin
+  UnloadOCSDLL( False );
+  //UnloadHookDLL_Emul;
+end;
+
+procedure TGDReceptionReservationForm.FormShow(Sender: TObject);
+begin
+  GetBridge; // bridge dll을 적제 하기 위해 한번 실행 한다.
+
+  SetControlObjTransForm( panel2 ); // 반투명 form을 출력 할 위치 설정
+
+  if FFormPosiMng.Load then
+    FFormPosiMng.SetPos // 위치 출력
+  else
+    FFormPosiMng.SetDefaultPos; // 기본 위치 출력
+
+  if GetRREnv.fsStayOnTop then
+    FormStyle := fsStayOnTop;
+
+  if GetRREnv.fsMaxForm then
+    WindowState := wsMaximized;
+
+  // form 상태에 따른 button 정리
+  if WindowState = wsNormal then
+    maxstore_btn.ActiveButtonType := aibtButton1
+  else
+    maxstore_btn.ActiveButtonType := aibtButton2;
+
+
+  // button 초기 위치 설정
+  close_btn.Left := Panel1.Width - close_btn.Width - 5;
+  maxstore_btn.Left := close_btn.Left - maxstore_btn.Width - 3;
+  min_btn.Left := maxstore_btn.Left - min_btn.Width - 3;
+  SakpungImageButton1.Left := min_btn.Left - SakpungImageButton1.Width - 5;
+
+  initButton;
+
+  CheckStaging;
+
+  ShowLoginForm;
+
+  if not CheckHospitalID then
+  begin // hispital id가 없으므로 반드시 입력하게 만들어야 한다.
+    EnvShowTimer.Enabled := True;
+  end;
+end;
+
+procedure TGDReceptionReservationForm.initButton;
+begin
+  close_btn.PngImageList := ImageResourceDM.WindowButtonImageList;
+  ImageResourceDM.SetButtonImage(close_btn, aibtButton1, BTN_Img_Win_Close);
+  maxstore_btn.PngImageList := ImageResourceDM.WindowButtonImageList;
+  ImageResourceDM.SetButtonImage(maxstore_btn, aibtButton1, BTN_Img_Win_Max);
+  ImageResourceDM.SetButtonImage(maxstore_btn, aibtButton2, BTN_Img_Win_normal);
+  min_btn.PngImageList := ImageResourceDM.WindowButtonImageList;
+  ImageResourceDM.SetButtonImage(min_btn, aibtButton1, BTN_Img_Win_Min);
+end;
+
+procedure TGDReceptionReservationForm.maxstore_btnClick(Sender: TObject);
+begin  // 최대/normal
+  if WindowState = wsNormal then
+    WindowState := wsMaximized
+  else
+    WindowState := wsNormal;
+
+  if WindowState = wsNormal then
+    maxstore_btn.ActiveButtonType := aibtButton1
+  else
+    maxstore_btn.ActiveButtonType := aibtButton2;
+end;
+
+procedure TGDReceptionReservationForm.menualdownload_menuClick(Sender: TObject);
+const
+  URL_이용가이드1 = 'https://goodoc.gitbook.io/partners/undefined-5/undefined';
+ // URL_이용가이드2 = '%E1%84%89%E1%85%AE%E1%84%89%E1%85%A5%E1%84%87%E1%85%B5%E1%84%89%E1%85%B3+%E1%84%8B%E1%85%B5%E1%84%8B%E1%85%AD%E1%86%BC%E1%84%80%E1%85%A1%E1%84%8B%E1%85%B5%E1%84%83%E1%85%B3.pdf';
+  URL_이용가이드 = URL_이용가이드1 ;  //+ URL_이용가이드2;
+
+var
+  url : string;
+begin // 메뉴얼 다운로드
+  url := URL_이용가이드;
+  _BrowserOpen( url );
+end;
+
+procedure TGDReceptionReservationForm.min_btnClick(Sender: TObject);
+begin // 최소화
+  // WindowState := wsMinimized;
+  Application.Minimize;
+end;
+
+procedure TGDReceptionReservationForm.N10Click(Sender: TObject);
+begin
+  close_btn.click;
+end;
+
+procedure TGDReceptionReservationForm.N2Click(Sender: TObject);
+var
+  form : TRoomListMNGForm;
+begin
+  form := TRoomListMNGForm.Create( nil );
+  try
+    form.ShowModal;
+  finally
+    FreeAndNil( form );
+  end;
+end;
+
+procedure TGDReceptionReservationForm.N4Click(Sender: TObject);
+var
+  form : TCancelMsgListMNGForm;
+begin
+  form := TCancelMsgListMNGForm.Create( nil );
+  try
+    form.ShowModal;
+  finally
+    FreeAndNil( form );
+  end;
+
+end;
+
+procedure TGDReceptionReservationForm.N6Click(Sender: TObject);
+var
+  dtype : TRnRType;
+  status : TConvertState4App;
+  statuscode : TRnRDataStatus;
+begin
+  FObserver.BeforeAction(OB_Event_DataRefresh);
+  try
+    with RnRDM do
+    begin
+      if not RR_DB.Active then
+        exit;
+
+      RR_DB.First;
+      while not RR_DB.Eof do
+      begin
+        dtype := TRnRType( RR_DB.FieldByName( 'datatype' ).AsInteger );
+        statuscode := TRRDataTypeConvert.DataStatus2RnRDataStatus(RR_DB.FieldByName( 'status' ).AsInteger);
+        status := TRRDataTypeConvert.Status4App( statuscode, RR_DB.FieldByName( 'hsptlreceptndttm' ).AsDateTime );
+        try
+          if dtype <> rrReception then
+              Continue;
+          if status in [csa요청, csa요청취소] then // 요청 관련 data만 인지 하게 한다.
+            Continue;
+
+          RR_DB.Edit;
+          RR_DB.FieldByName('status').AsInteger := integer( rrs내원확정);
+          RR_DB.Post;
+        finally
+          RR_DB.Next;
+        end;
+      end;
+    end;
+  finally
+    FObserver.AfterAction(OB_Event_DataRefresh);
+  end;
+end;
+
+procedure TGDReceptionReservationForm.N7Click(Sender: TObject);
+const
+  Hospital_Admin_Staging_URL = 'https://hospital.goodoc-staging.co.kr'; // 'https://staging.goodoc.co.kr/hospital/login';
+  Hospital_Admin_PRD_URL = 'https://hospital.goodoc.co.kr'; // 'https://www.goodoc.co.kr/hospital/login';
+  Hospital_Admin_Dev_URL = 'https://hospital.goodoc-develop.co.kr/'; // 'http://dev.goodoc.co.kr:3000/admin/v2/login';
+var
+  url : string;
+begin // 병원 관리자 사이트
+  // 0:개발서버, 1:staging서버, 2:운영서버
+  case FCheckEnvServer of
+    0 : url := Hospital_Admin_Dev_URL; //  개발 서버
+    1 : url := Hospital_Admin_Staging_URL; // staging 서버
+  else
+    url := Hospital_Admin_PRD_URL; // 운영서버
+  end;
+
+  _BrowserOpen( url );
+end;
+
+procedure TGDReceptionReservationForm.logout_mnClick(Sender: TObject);
+begin // log out
+  FObserver.BeforeAction(OB_Event_LogoutOk);
+  FObserver.AfterAction(OB_Event_LogoutOk);
+end;
+
+procedure TGDReceptionReservationForm.SetEnv_menuClick(Sender: TObject);
+var
+  form : TSetEnvForm;
+begin
+  form := TSetEnvForm.Create( nil );
+  try
+    if form.ShowModal = mrOk then
+    begin
+      // 변경된 option 반영
+      if GetRREnv.fsStayOnTop then
+        FormStyle := fsStayOnTop
+      else
+        FormStyle := fsNormal;
+    end;
+  finally
+    FreeAndNil( form );
+  end;
+end;
+
+procedure TGDReceptionReservationForm.Panel1MouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+const
+  SC_DragMove = $F012;  { a magic number }
+begin
+  ReleaseCapture;
+  self.perform(WM_SysCommand, SC_DragMove, 0);
+end;
+
+procedure TGDReceptionReservationForm.Refresh1Click(Sender: TObject);
+begin
+  GetRRNoticeForm.ShowCount(0, 12);
+end;
+
+procedure TGDReceptionReservationForm.SakpungImageButton1Click(Sender: TObject);
+var
+  pnt: TPoint;
+begin
+  if GetCursorPos(pnt) then
+    PopupMenu1.Popup(pnt.X, pnt.Y);
+end;
+
+procedure TGDReceptionReservationForm.WMGetMinMaxInfo(var Msg: TWMGetMinMaxInfo);
+var
+  env : TRREnv;
+  workAreaRect: TRect;
+begin
+  inherited;
+
+  with Msg.MinMaxInfo^ do
+  begin
+   SystemParametersInfo(SPI_GETWORKAREA, 0, @workAreaRect, 0); //작업표시줄 크기 가져오기
+
+    // 윈도우의 최대 가로길이와 세로 길이를 POINT 형식의 값으로 저장한다.
+    ptMaxSize.X := CalcScaleValue(Handle, Max_Width_Size);
+    //ptMaxSize.X := CalcScaleValue(Handle, Monitor.Width);   // 최대 폭 지정
+    ptMaxSize.Y := CalcScaleValue(Handle, Monitor.Height);        // 최대 높이 지정, 모니터 별로 틀릴 수 있으니 모니터 값을 참고
+   // ptMaxSize.Y := CalcScaleValue(Handle, Max_Height_Size);
+
+    // window의 최소 크기
+    ptMinTrackSize.x := CalcScaleValue(Handle, Min_Width_Size); // 최소 폭
+    //ptMinTrackSize.y := CalcScaleValue(Handle, Min_Height_Size); // 최소 높이
+
+    // window의 최대크기
+    ptMaxTrackSize.X := CalcScaleValue(Handle, Max_Width_Size); // 최대 폭
+    //ptMaxTrackSize.X := CalcScaleValue(Handle, Monitor.Width);
+
+    // ptMaxTrackSize.Y:= Monitor.Height;  // 최대 높이, ok
+
+     ptMaxTrackSize.Y:= workAreaRect.Bottom - workAreaRect.Top;   //작업표시줄 만큼 제외
+    //ptMaxTrackSize.Y := Monitor.WorkareaRect.Bottom - Monitor.WorkareaRect.Top;
+    //ptMaxTrackSize.Y := Max_Height_Size;
+
+    // 최대화된 window의 x,y 좌표
+    ptMaxPosition.y := 0;
+
+    env := GetRREnv;
+    // 최대화시 외쪽/오른쪽 위치 설정
+    if env.fsFormMaxPositionLeft then
+     //ptMaxPosition.X := 0
+     ptMaxPosition.X := Monitor.Width div 3   // 최대화시 화면 중앙이동
+    else
+    // ptMaxPosition.X := Monitor.Width - Width;
+     ptMaxPosition.X := Monitor.Width div 3  ; //최대화시 화면 중앙이동
+  end;
+end;
+
+procedure TGDReceptionReservationForm.WMSysCommand(var Msg: TWMSysCommand);
+begin
+  case Msg.CmdType of
+    SC_MINIMIZE   :
+      Application.Minimize;
+    SC_RESTORE    : //ShowWindow(Handle, SC_RESTORE);
+      WindowState := wsNormal;
+    SC_MAXIMIZE   : WindowState := wsMaximized;
+  else
+    inherited;
+  end;
+end;
+
+procedure TGDReceptionReservationForm.LoadOCSDLL;
+var
+  ocshook : TOCSHookDLLLoader;
+  env : TRREnv;
+  YSRConnStrManager : TYSRConnStrManager;
+  IPROConnStrManager : TIPROConnStrManager;
+begin
+  ocshook := GetOCSHookLoader;
+  env := GetRREnv;
+
+  if not ocshook.isOCSHookDLLLoad then
+  begin
+    ocshook.OCSType := TOCSType( env.HookOCSType );
+
+{$IFNDEF DEBUG} // 디버그 상태에서는 None을 에뮬레이터 연동으로 본다.
+    if ocshook.OCSType = TOCSType.None then
+      exit;
+{$ENDIF}
+
+    ocshook.OnOCSAlive := OCSAliveEventNotify;
+    ocshook.OnOCSWaitListState := OCSWaitListStateEventNotify;
+    ocshook.Load;
+    ocshook.Init;
+  end;
+
+  // DB connection string test (ysr only)                  로그인시점에 의사랑 차트를 재실행 알럿이 나와서 주석처리함.
+//  if ocshook.OCSType = TOCSType.YSR then
+//  begin
+//    YSRConnStrManager := TYSRConnStrManager.Create(nil);
+//    try
+//      if not YSRConnStrManager.ReadRegistry then
+//      begin
+//        ShowGDMsgDlg( env.GetHookOCSName + ' 차트접수프로그램을 재구동해주세요.', GetTransFormHandle, mtInformation, [mbOK]);
+//      end;
+//    finally
+//      FreeAndNil(YSRConnStrManager);
+//    end;
+//  end
+//  else if ocshook.OCSType = TOCSType.IPro then
+//  begin
+//
+//  end;
+
+end;
+
+procedure TGDReceptionReservationForm.UnloadOCSDLL(ALogout: Boolean);
+var
+  ocshook : TOCSHookDLLLoader;
+begin
+  ocshook := GetOCSHookLoader;
+
+  if ocshook.isOCSHookDLLLoad then
+  begin
+    if not ALogout then
+    begin
+      ocshook.Stop;
+      ocshook.Unload;
+    end;
+  end;
+end;
+
+procedure TGDReceptionReservationForm.OCSAliveEventNotify(AAlive: Boolean);
+begin
+  AddLog( doRunLog, 'OCS Alive : ' + BoolToStr( AAlive, true ) );
+  if isFirst and (not AAlive) then
+  begin
+    isFirst := False;
+    HookAliveTimer.Enabled := True;
+  end;
+
+end;
+
+procedure TGDReceptionReservationForm.OCSWaitListStateEventNotify(AWaitListID: string; AState: Integer);
+begin
+  AddLog( doRunLog, 'OCS OCSWaitList : ' + Format('WaitListID: %s, State: %d, 처리전', [AWaitListID, AState]));
+
+  case _tagInsertStatus( AState ) of
+    InsertStatus_Start: // ocs에 접수 작업 시작
+      begin
+        // lock
+
+
+
+      end;
+    InsertStatus_DlgPopup : ; // ocs의 접수창 show시 발생
+  else
+    // unlock
+
+  end;
+  AddLog( doRunLog, 'OCS OCSWaitList : ' + Format('WaitListID: %s, State: %d, 처리완료', [AWaitListID, AState]));
+end;
+
+
+procedure TGDReceptionReservationForm.OnTimerHookAlive(Sender: TObject);
+begin
+  // hook dll에서 발생한 thread에서 message box 출력(UI)을 하면 화면 멈춤
+  // timer를 이용하여 main thread에서 처리할 수 있도록 한다.
+  HookAliveTimer.Enabled := False;
+  ShowGDMsgDlg( '외래접수 프로그램이 구동되어 있지 않습니다.', GetTransFormHandle, mtInformation, [mbOK] );
+end;
+
+end.

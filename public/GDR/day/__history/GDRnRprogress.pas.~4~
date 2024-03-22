@@ -1,0 +1,82 @@
+unit GDRnRprogress;
+
+
+
+//접수 확정시 프로그래스 띄우는애
+
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.ComCtrls;
+
+type
+  TRnRDMUnitProgress = class(TForm)
+    ProgressBar1: TProgressBar;
+    Label1: TLabel;
+    Timer1: TTimer;
+    procedure FormCreate(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
+
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+  var
+  RnRDMUnitProgress: TRnRDMUnitProgress;
+
+implementation
+  {$R *.dfm}
+
+  procedure TRnRDMUnitProgress.FormCreate(Sender: TObject);
+
+var
+  MainFormCenterX, MainFormCenterY: Integer;
+  ModalFormLeft, ModalFormTop: Integer;
+  rect: TRect;
+
+begin
+  GetWindowRect(Application.MainFormHandle, rect); //메인 Form 크기 체크
+
+  MainFormCenterX := (rect.Left + rect.Right) div 2;
+  MainFormCenterY := (rect.Top + rect.Bottom) div 2;
+
+  ModalFormLeft := MainFormCenterX - Width div 2;
+  ModalFormTop := MainFormCenterY - Height div 2;
+
+  Left := ModalFormLeft;
+  Top := ModalFormTop;
+
+  Timer1.Enabled := True;
+
+end;
+
+
+
+procedure TRnRDMUnitProgress.Timer1Timer(Sender: TObject);
+var
+  iRow: Integer;
+begin
+  ProgressBar1.Position := 0;
+  ProgressBar1.Max := 2;
+
+  for iRow := 0 to 2 do
+  begin
+    ProgressBar1.Position := ProgressBar1.Position + 1;
+    sleep(500);
+  end;
+
+  if ProgressBar1.Position = ProgressBar1.Max then
+  begin
+    Timer1.Enabled := False;
+    //Application.Terminate;
+    close;
+  end;
+
+end;
+
+end.
+

@@ -1,0 +1,889 @@
+unit RnRData;
+
+interface
+uses
+  Data.DB,
+  RRObserverUnit,
+  BridgeCommUnit;
+
+type
+  TRnRType = (rrReception, rrReservation);              // 접수 type, 예약/접수
+
+//  TRnRDataState = (rrsRequest, rrsDecide, rrsRequestVisite, rrsVisiteDecide, rrsFinish );  // 진행 상태 type,  요청/확정/내원ㅝㄴ요청/내원확정/완료
+  TRnRDataStatus = (
+        rrsUnknown, // 알수 없는 상태
+        rrs예약요청,      // Status_예약요청 = 'S01';
+        rrs예약실패,      // Status_예약실패 = 'S02'; // 예약 요청 data를 예약 완료 전 취소를 하면 실패로 본다.
+        rrs예약완료,      // Status_예약완료 = 'S03';
+        rrs접수요청,      // Status_접수요청 = 'C01';
+        rrs접수실패,      // Status_접수실패 = 'C02'; // 접수 요청 data를 접수 완료 전 취소를 하면 실패로 본다.
+        rrs접수완료,      // Status_접수완료 = 'C03';
+        rrs진료대기,      // Status_진료대기 = 'C04';
+        rrs내원요청,      // Status_내원요청 = 'C05';
+        rrs내원확정,      // Status_내원확정 = 'C06';
+        rrs진료차례,      // Status_진료차례 = 'C07';
+        rrs취소요청,      // Status_취소요청 = 'F01';
+        rrs본인취소,      // Status_본인취소 = 'F02';
+        rrs병원취소,      // Status_병원취소 = 'F03';
+        rrs자동취소,      // Status_자동취소 = 'F04';
+        rrs진료완료,       // Status_진료완료 = 'F05';
+        rrs접수완료_new   // 디테일 확정용 접수완료
+    );
+  TConvertState4App = (
+      csa요청, // 요청(확정 버튼 출력), rrs예약요청, rrs접수요청, rrsUnknown(접수 요청으로 보자)
+      csa요청취소, // 요청 취소 상태, rrs본인요청취소, rrs병원요청취소
+      csa환자확인, // 환자 확인(요청, 내원 버튼 출력), rrs예약완료,
+      csa환자확인Disable, //  rrs내원요청(요청 버튼 disable)
+      csa환자내원, // 내원(요청 버튼 disable, 내원 버튼 출력), rrs접수완료, rrs내원확정
+      csa진료대기, // 진료 처리(완료 버튼 출력), rrs진료차례, rrs진료대기
+      csa진료완료, // 완료, rrs진료완료
+      csa취소     // 취소, rrs본인취소, rrs병원취소, rrs자동취소, rrs예약실패, rrs접수실패, rrs취소요청(취소 상태로 보자)
+    );
+
+  TRnRInDevice = ( rrifUnknown, rriftablet, rrifBridge, rrifApp );     // 유입 type, tablet/web/mobile
+
+  TRnRGenderType = (rrgtUnknown, rrgtMale, rrgtFemale );  // 성별
+
+  TRRDataTypeConvert = class
+  public
+    { Public declarations }
+    // 접수/예약 구분
+    class function DataType2RnRType( ADateType : String ) : TRnRType;
+    class function RnRType2DataType( ARnRType : TRnRType ) : string;
+
+    // 접수 상태
+    class function RnRDataStatus2DataStatus( ARnRDataStatus : TRnRDataStatus ) : string;
+    class function RnRDataStatus2DispStr( ARnRType : TRnRType; A접수확정: Boolean; ARnRDataStatus : TRnRDataStatus ) : string;  overload;
+    class function RnRDataStatus2DispStr( ARnRType : TRnRType; A접수확정: Boolean; ARnRDataStatus : TRnRDataStatus; ADeviceType : TRnRInDevice ) : string;  overload;
+
+    class function DataStatus2RnRDataStatus( AStatus : string ) : TRnRDataStatus; overload;
+    class function DataStatus2RnRDataStatus( AStatus : Integer ) : TRnRDataStatus; overload;
+    class function Status4App(AStatus : TRnRDataStatus; AReceptionConfirmationDttm : TDateTime = 0) : TConvertState4App;  // 프로그램에서 사용할 약식 상태로 전환 한다.
+    class function DataStatus2State4App( AStatus : string ) : TConvertState4App;
+
+    // 유입 기기 type
+    class function InDevice2RnRInDevice( ADeviceType : string ) : TRnRInDevice;
+    class function RnRInDevice2InDevice( ARnRInDevice : TRnRInDevice ) : string;
+
+    // 성별
+    class function GenderType2RnRGender( AGender : string ) : TRnRGenderType;
+    class function RnRGender2GenderType( AGenderType : TRnRGenderType ) : string;
+
+    // 취소 상태
+    class function CheckCancelStatus( AStatus : TRnRDataStatus; AReceptionConfirmationDttm : TDateTime = 0 ) : Boolean;
+    class function checkFinishStatus( AStatus : TRnRDataStatus ) : Boolean;
+  end;
+
+  TRoomInfoData = class
+  public
+    { Public declarations }
+    RoomCode : string;  // 진료실 ID
+    RoomName : string; // 진료실 이름
+    DeptCode : string; // 과목코드
+    DeptName : string; // 과목명
+    DoctorCode : string; // 의사 코드
+    DoctorName : string; // DoctorName
+  end;
+
+  TRnRDataClass = class of TRnRData;
+
+  TRoomInfo = record
+    RoomCode : string;  // 진료실 ID
+    RoomName : string; // 진료실 이름
+    DeptCode : string; // 과목코드
+    DeptName : string; // 과목명
+    DoctorCode : string; // 의사 코드
+    DoctorName : string; // DoctorName
+    procedure Assign( ASource : TRoomInfo );
+  end;
+
+  TRnRData = class( TObject )
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    ChartReceptnResultId : TChartReceptnResultId;
+
+    DataType : TRnRType;  // 유형  접수/예약
+
+    Inflow : TRnRInDevice;  // devicetype 유입 매체  tablet, bridge, app
+    Status : TRnRDataStatus; // data 상태,  요청/확정/완료
+    PatientChartID : string;
+    PatientName : string; // 환자 이름
+    PatientID : string; // V4
+    CellPhone : string; // 전화 번호
+    BirthDay : string; // 생년월일, yyyymmdd
+    DispBirthDay : string; // 생년월일, yy-mm-dd, 출력용
+    Registration_number : string;  // 주민등록 번호 xxxxxxxxxxxxx => 13자리, 외국인/여권 번호???
+    DispRegistration_number : string; // 주민번호 출력용
+    Gender : TRnRGenderType; // 성별
+    Symptom : string; // 내원 목적
+    InBoundPath : string; // 내원 경로
+    Addr : string; // 주소
+    AddrDetail : string; // 상세 주소
+    Zip : string; // 우편 번호
+
+    RoomInfo : TRoomInfo;
+
+    VisitDT : TDateTime;  // 방문 시간
+    RegisterDT : TDateTime; // 등록 시간, DB에 등록된 시간 receptiondttm
+    hsptlreceptndttm : TDateTime; // 접수 확정 일시
+    CancelDT : TDateTime;  // 취소 시간
+    isFirst : Boolean; // 초/재진 구분, true:초진, false:재진
+
+    CanceledMessage : string; // 거부 메시지
+    Memo : string; // 메모
+    isRegNumDefined : Boolean; // 주민등록번호 전체값을 가지고 있는지 여부
+  public
+    { Public declarations }
+    constructor Create; virtual;
+
+    function GetChartReceptnResultId : string;
+
+    function DispGender : string; // 출력용 function 성별 출력
+    function Canceled : Boolean; // 취소 상태 true이면 취소 상태 이다.
+
+    function Status4App : TConvertState4App;  // 프로그램에서 사용할 약식 상태로 전환 한다.
+
+    function Copy : TRnRData;
+
+    function 접수확정 : Boolean; // 접수 요청 관련 상태이면 false, 그외에는 true(접수완료, 내원, 완료 등의 상태),
+  end;
+
+  TMonthData = class( TObject )
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    Caption : string;
+    Day : TDate;
+    WeekDay : Integer; // 요일, 0:일요일, 6:토요일
+    Holiday : Boolean;   // true이면 휴일
+
+    RequestCount : Integer; // 예약 요청(확정 전 data) 집계
+    DecideCount : Integer; // 예약 확정(완료, 대기...) 집계
+    CancelFinishCount : Integer; // 취소 data 집계
+  public
+    { Public declarations }
+    constructor Create; virtual;
+
+    function incRequestCount : Integer;
+    function incDecideCount : Integer;
+    function incCancelFinishCount : Integer;
+  end;
+
+  TSelectData = class( TObserverData )
+  private
+    { Private declarations }
+    FDate: TDate;
+  public
+    { Public declarations }
+    constructor Create( ADay : TDate ); virtual;
+
+    function CopyData : TObserverData; override;
+
+    property Date : TDate read FDate;
+  end;
+
+  TCancelMsgData = class
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    Caption : string;
+  public
+    { Public declarations }
+    constructor Create; virtual;
+  end;
+
+procedure InitData;
+
+// 사용자가 입력한 전화번호에서 숫자를 제외한 모든 문자를 삭제 후 반환
+function ConvertInputCellPhone( ACellPhone : string ) : string;
+// 출력용 전화번호로 만들어 준다.
+function DisplayCellPhone( ACellPhone : string ) : string;
+// 출력용 생일로 만들어 준다.
+function DisplayBirthDay( ABirthDay : string ) : string; // yyyy-mm-dd형식
+// 출력용 생일로 만들어 준다.
+function DisplayBirthDay2( ABirthDay : string ) : string; //yy-mm-dd형식
+// 출력용 주민등록 번호를 만들어 준다.
+function DisplayRegistrationNumber( ARegistrationNumber : string ) : string;
+// 출력용 내원 목적으로 변환 한다.
+function DisplaySymptom( ASymptom : string ) : string;
+
+implementation
+uses
+  System.Classes, System.SysUtils, dateutils;
+
+var
+  GRnRDataStatusValue : array [TRnRDataStatus] of string;
+  GRnRInDevice : array [TRnRInDevice] of string;
+
+procedure InitData;
+var
+  data : string;
+  i : TRnRDataStatus;
+  j : TRnRInDevice;
+begin
+  for i := Low(TRnRDataStatus) to High(TRnRDataStatus) do
+  begin
+    case i of
+      rrs예약요청     : data := Status_예약요청; // 'S01';
+      rrs예약실패     : data := Status_예약실패; // 'S02';
+      rrs예약완료     : data := Status_예약완료; // 'S03';
+      rrs접수요청     : data := Status_접수요청; // 'C01';
+      rrs접수실패     : data := Status_접수실패; // 'C02';
+      rrs접수완료     : data := Status_접수완료; // 'C03';
+      rrs진료대기     : data := Status_진료대기; // 'C04';
+      rrs내원요청     : data := Status_내원요청; // 'C05';
+      rrs내원확정     : data := Status_내원확정; // 'C06';
+      rrs진료차례     : data := Status_진료차례; // 'C07';
+      rrs취소요청     : data := Status_취소요청; // 'F01';
+      rrs본인취소     : data := Status_본인취소; // 'F02';
+      rrs병원취소     : data := Status_병원취소; // 'F03';
+      rrs자동취소     : data := Status_자동취소; // 'F04';
+      rrs진료완료     : data := Status_진료완료; // 'F05';
+      rrs접수완료_new     : data := Status_접수완료; // 'C03'; 디테일용
+    else // rrsUnknown
+      data := '';
+    end;
+    GRnRDataStatusValue[ i ] := data;
+  end;
+
+  for j := Low(TRnRInDevice) to High(TRnRInDevice) do
+  begin
+    case j of
+      rriftablet  : data := InDeviceType_Tablet;
+      rrifBridge  : data := InDeviceType_Bridge;
+      rrifApp     : data := InDeviceType_App;
+    else // rrifUnknown
+      data := '';
+    end;
+    GRnRInDevice[ j ] := data
+  end;
+end;
+
+// 사용자가 입력한 전화번호에서 숫자를 제외한 모든 문자를 삭제 후 반환
+function ConvertInputCellPhone( ACellPhone : string ) : string;
+var
+  i, l : Integer;
+begin
+  Result := '';
+  l := Length( ACellPhone );
+  if l <= 0  then
+    exit;
+  for i := 1 to l do
+  begin
+    //if StrToIntDef(ACellPhone[ i ], -1) >= 0 then
+    if CharInSet(ACellPhone[i], ['0'..'9']) then
+      Result := Result + ACellPhone[ i ];
+  end;
+end;
+
+// 출력용 전화번호로 만들어 준다.
+function DisplayCellPhone( ACellPhone : string ) : string;
+var
+  len : Integer;
+begin
+  Result := ACellPhone;
+
+  if Result.IndexOf( '-' ) > 0 then
+    exit; // 전화번호 사이에 구분자가 이미 들어 있다. 그냥 출력 하게 한다.
+
+  len := Length( ACellPhone );
+  if len <= 3 then
+    exit
+  else if len <= 10 then
+  begin
+    Result.Insert(3, '-');
+    if len >= 7 then
+      Result.Insert(7, '-');
+  end
+  else
+  begin
+    Result.Insert(3, '-');
+    if len >= 8 then
+      Result.Insert(8, '-');
+  end;
+end;
+
+// 출력용 생일로 만들어 준다.
+function DisplayBirthDay( ABirthDay : string ) : string;
+var
+  len : Integer;
+begin
+  Result := ABirthDay;
+
+  if Result.IndexOf( '-' ) > 0 then
+    exit; // 생일 사이에 구분자가 이미 들어 있다. 그냥 출력 하게 한다.
+
+  len := Length( ABirthDay );
+
+  if len < 8 then
+    exit;
+
+  Result.Insert(4, '-');
+  Result.Insert(7, '-');
+end;
+
+// 출력용 생일로 만들어 준다.
+function DisplayBirthDay2( ABirthDay : string ) : string; //yy-mm-dd형식
+var
+  d : TDate;
+  strd : string;
+begin
+  Result := '';
+  strd := DisplayBirthDay( ABirthDay );
+  d := StrToDateDef(strd, 0);
+  if d = 0 then exit;
+  Result := FormatDateTime('yy-mm-dd', d);
+end;
+
+function DisplayRegistrationNumber( ARegistrationNumber : string ) : string;
+var
+  index : Integer;
+  len : Integer;
+  s1, s2, s3 : AnsiString;
+begin
+  Result := ARegistrationNumber;
+
+  index := Result.IndexOf( '-' );
+
+  if index < 0 then
+    index := 6 // '-'가 없다
+  else
+    Result := Result.Remove(index, 1);
+
+  len := Length( Result );
+
+  if len < 7 then
+    exit;
+
+{$WARNINGS OFF}
+  s1 := Result.Substring(0, index); // 앞자리 6
+  s2 := Result.Substring(index, 1); // 성별
+
+  if len = 7 then
+  begin  // 주민 번호가 7자리이다.
+    s3 := '******';
+  end
+  else // if len = 13 then
+  begin
+    s3 := Result.Substring(index+1, len-index-1);
+  end;
+  Result := s1 + '-' + s2 + s3;
+{$WARNINGS ON}
+end;
+
+// 출력용 내원 목적으로 변환 한다.
+function DisplaySymptom( ASymptom : string ) : string;
+(*var
+  sl : TStringList; *)
+begin
+(*  sl := TStringList.Create;
+  try
+    sl.CommaText := ASymptom;
+    Result := sl.Text;
+  finally
+    FreeAndNil( sl );
+  end; *)
+  Result := ASymptom;
+end;
+
+
+{ TRnRData }
+
+function TRnRData.Canceled: Boolean;
+begin
+  Result := Status in [rrs본인취소, rrs병원취소, rrs자동취소, rrs예약실패, rrs접수실패, rrs취소요청];
+end;
+
+function TRnRData.Copy: TRnRData;
+begin
+  Result := TRnRData.Create;
+
+  Result.ChartReceptnResultId.Id1 := ChartReceptnResultId.Id1; // data에 대한 ID
+  Result.ChartReceptnResultId.Id2 := ChartReceptnResultId.Id2; // data에 대한 ID
+  Result.ChartReceptnResultId.Id3 := ChartReceptnResultId.Id3; // data에 대한 ID
+  Result.ChartReceptnResultId.Id4 := ChartReceptnResultId.Id4; // data에 대한 ID
+  Result.ChartReceptnResultId.Id5 := ChartReceptnResultId.Id5; // data에 대한 ID
+  Result.ChartReceptnResultId.Id6 := ChartReceptnResultId.Id6; // data에 대한 ID
+  Result.DataType := DataType;  // 유형  접수/예약
+  Result.Inflow := Inflow;  // 유입 매체  tablet, web, mobile
+  Result.Status := Status; // data 상태,  알수 없음.
+  Result.PatientChartID := PatientChartID;
+  Result.PatientName := PatientName;
+  Result.PatientID := PatientID;
+  Result.BirthDay := BirthDay;
+  Result.Registration_number := Registration_number;
+  Result.CellPhone := CellPhone;
+  Result.Gender := Gender;
+  Result.RoomInfo.RoomCode := RoomInfo.RoomCode;
+  Result.RoomInfo.RoomName := RoomInfo.RoomName;
+  Result.RoomInfo.DeptCode := RoomInfo.DeptCode;
+  Result.RoomInfo.DeptName := RoomInfo.DeptName;
+  Result.RoomInfo.DoctorCode := RoomInfo.DoctorCode;
+  Result.RoomInfo.DoctorName := RoomInfo.DoctorName;
+  Result.Memo := Memo;
+  Result.isFirst := isFirst;
+  Result.RegisterDT := RegisterDT;
+  Result.Symptom := Symptom;
+  Result.InBoundPath := InBoundPath;
+  Result.Addr := Addr;
+  Result.AddrDetail := AddrDetail;
+  Result.Zip := Zip;
+  Result.VisitDT := VisitDT;
+  Result.CancelDT := CancelDT;
+  Result.CanceledMessage := CanceledMessage;
+  Result.hsptlreceptndttm := hsptlreceptndttm;
+  Result.isRegNumDefined := isRegNumDefined;
+end;
+
+constructor TRnRData.Create;
+begin
+  ChartReceptnResultId.Id1 := ''; // data에 대한 ID
+  ChartReceptnResultId.Id2 := ''; // data에 대한 ID
+  ChartReceptnResultId.Id3 := ''; // data에 대한 ID
+  ChartReceptnResultId.Id4 := ''; // data에 대한 ID
+  ChartReceptnResultId.Id5 := ''; // data에 대한 ID
+  ChartReceptnResultId.Id6 := ''; // data에 대한 ID
+
+  DataType := rrReception;  // 유형  접수/예약
+
+  Inflow := rriftablet;  // 유입 매체  tablet, web, mobile
+  Status := rrsUnknown; // data 상태,  알수 없음.
+  //접수확정 := False;
+  PatientName := '';
+  PatientChartID := '';
+  PatientID := '';
+  BirthDay := '';
+  Registration_number := '';
+  Gender := rrgtUnknown;
+  RoomInfo.RoomCode := '';
+  RoomInfo.RoomName := '';
+  RoomInfo.DeptCode := '';
+  RoomInfo.DeptName := '';
+  RoomInfo.DoctorCode := '';
+  RoomInfo.DoctorName := '';
+  RegisterDT := 0;
+  Symptom := '';
+  InBoundPath := '';
+  Addr := '';
+  AddrDetail := '';
+  Zip := '';
+  VisitDT := 0;
+  hsptlreceptndttm := 0;
+  CanceledMessage := '';
+  isRegNumDefined := False;
+end;
+
+function TRnRData.DispGender: string;
+begin
+  Result := '';
+  if Gender = rrgtMale then
+    Result := '(남)'
+  else if Gender = rrgtFemale then
+    Result := '(여)';
+end;
+
+function TRnRData.GetChartReceptnResultId: string;
+begin
+  Result := Format('%s!%s@%s#%s$%s^%s',[
+                        ChartReceptnResultId.Id1,
+                        ChartReceptnResultId.Id2,
+                        ChartReceptnResultId.Id3,
+                        ChartReceptnResultId.Id4,
+                        ChartReceptnResultId.Id5,
+                        ChartReceptnResultId.Id6
+                        ]);
+end;
+
+function TRnRData.Status4App: TConvertState4App;
+begin
+  Result := TRRDataTypeConvert.Status4App( Status );
+end;
+
+function TRnRData.접수확정: Boolean;
+begin
+  Result := hsptlreceptndttm <> 0;
+end;
+
+{ TMonthData }
+
+constructor TMonthData.Create;
+begin
+  CancelFinishCount := 0; // 취소 완료 data 집계
+  RequestCount := 0; // 예약 요청(확정 전 data) 집계
+  DecideCount := 0; // 예약 확정(완료, 대기...) 집계
+  Day := Today;
+  Caption := FormatDateTime('d', Day);
+  Holiday := False;
+end;
+
+function TMonthData.incCancelFinishCount: Integer;
+begin
+  Inc( CancelFinishCount );
+  Result := CancelFinishCount;
+end;
+
+function TMonthData.incDecideCount: Integer;
+begin
+  Inc( DecideCount );
+  Result := DecideCount;
+end;
+
+function TMonthData.incRequestCount: Integer;
+begin
+  Inc( RequestCount );
+  Result := RequestCount;
+end;
+
+
+{ TSelectData }
+
+function TSelectData.CopyData: TObserverData;
+begin
+  Result := TSelectData.Create( FDate );
+end;
+
+constructor TSelectData.Create(ADay: TDate);
+begin
+  FDate := ADay;
+end;
+
+{ TCancelMsgData }
+
+constructor TCancelMsgData.Create;
+begin
+  Caption := '';
+end;
+
+{ TRRDataTypeConvert }
+
+class function TRRDataTypeConvert.CheckCancelStatus(
+  AStatus: TRnRDataStatus; AReceptionConfirmationDttm : TDateTime ): Boolean;
+begin
+  Result := AStatus in [ rrs취소요청, rrs본인취소, rrs병원취소, rrs자동취소, rrs예약실패, rrs접수실패];
+end;
+
+class function TRRDataTypeConvert.checkFinishStatus(
+  AStatus: TRnRDataStatus): Boolean;
+begin
+  Result := AStatus = rrs진료완료;
+end;
+
+class function TRRDataTypeConvert.DataStatus2RnRDataStatus(
+  AStatus: string): TRnRDataStatus;
+var
+  i : TRnRDataStatus;
+begin
+  Result := rrsUnknown;
+  for i := Low(TRnRDataStatus) to High(TRnRDataStatus) do
+  begin
+    if CompareText(AStatus, GRnRDataStatusValue[ i ] ) = 0 then
+    begin
+      Result := i;
+      break;
+    end;
+  end;
+end;
+
+class function TRRDataTypeConvert.DataStatus2RnRDataStatus(
+  AStatus: Integer): TRnRDataStatus;
+begin
+  Result := TRnRDataStatus( AStatus );
+end;
+
+class function TRRDataTypeConvert.DataStatus2State4App(
+  AStatus: string): TConvertState4App;
+var
+  s : TRnRDataStatus;
+begin
+  s := DataStatus2RnRDataStatus( AStatus );
+  Result := Status4App( s );
+end;
+
+class function TRRDataTypeConvert.DataType2RnRType(ADateType: String): TRnRType;
+begin
+  Result := rrReception;
+  if ADateType = RRType_Reservation then
+    Result := rrReservation;
+end;
+
+class function TRRDataTypeConvert.GenderType2RnRGender(
+  AGender: string): TRnRGenderType;
+const
+  Male : array of string = ['1', '3', '5', '7', '9'];
+  Female : array of string = ['2', '4', '6', '8', '10'];
+
+  function Check( AData : array of string ) : Boolean;
+  var
+    i : Integer;
+  begin
+    Result := False;
+    for i := Low(AData) to High(AData) do
+    begin
+      if CompareText( AGender, AData[i] ) = 0 then
+      begin
+        Result := True;
+        exit;
+      end;
+    end;
+  end;
+
+begin
+  Result := rrgtUnknown;
+  if Check(Male) then
+    Result := rrgtMale
+  else if Check(Female)  then
+    Result := rrgtFemale;
+end;
+
+class function TRRDataTypeConvert.InDevice2RnRInDevice(
+  ADeviceType: string): TRnRInDevice;
+var
+  i : TRnRInDevice;
+begin
+  Result := rrifUnknown;
+  for i := Low(TRnRInDevice) to High(TRnRInDevice) do
+  begin
+    if CompareText(ADeviceType, GRnRInDevice[ i ] ) = 0 then
+    begin
+      Result := i;
+      break;
+    end;
+  end;
+end;
+
+class function TRRDataTypeConvert.RnRDataStatus2DataStatus(
+  ARnRDataStatus: TRnRDataStatus): string;
+begin
+  Result := GRnRDataStatusValue[ ARnRDataStatus ];
+end;
+
+class function TRRDataTypeConvert.RnRDataStatus2DispStr(ARnRType: TRnRType;
+  A접수확정: Boolean; ARnRDataStatus: TRnRDataStatus;
+  ADeviceType: TRnRInDevice): string;
+
+begin
+  case ARnRDataStatus of
+    rrs예약실패, // Status_예약실패 = 'S02';
+    rrs접수실패 : Result := '취소'; // Status_접수실패 = 'C02';
+    rrs예약요청, // Status_예약요청 = 'S01';
+    rrs예약완료, // Status_예약완료 = 'S03';
+    rrs접수요청, // Status_접수요청 = 'C01';
+    rrs접수완료:  // Status_접수완료 = 'C03';
+
+        if ARnRType = rrReception then
+        begin
+            if ADeviceType = rriftablet then
+               Result := '태블릿';
+
+            if ADeviceType = rrifApp then
+               Result := '모바일';
+
+//            Result := '재진';
+//          if ADeviceType = rriftablet then
+//            Result := '신규';
+        end;
+    rrs진료대기 :  // Status_진료대기 = 'C04';
+      begin
+        if ARnRType = rrReception then
+        begin
+            if ADeviceType = rriftablet then
+               Result := '태블릿';
+
+            if ADeviceType = rrifApp then
+               Result := '모바일';
+
+//            Result := '재진';
+//          if ADeviceType = rriftablet then
+//            Result := '신규';
+        end
+        else
+          Result := '예약';
+      end;
+    rrs내원요청 :  // Status_내원요청 = 'C05';
+      begin
+        if ARnRType = rrReception then
+          Result := '태블릿'
+        else
+          Result := '모바일';
+      end;
+    rrs내원확정     : Result := '내원'; // Status_내원확정 = 'C06';
+    rrs진료차례     : Result := '내원'; // Status_진료차례 = 'C07';
+    rrs취소요청     : Result := '취소요청'; // Status_취소요청 = 'F01';
+
+    rrs본인취소     : // Status_본인취소 = 'F02';
+      begin // 확정 전이나, 후냐에 다라 출력 문구 변경 해야함.
+//        if A접수확정 then
+//          Result := '철회'
+//        else
+//          Result := '취소';
+        if ARnRType = rrReception then
+          Result := '태블릿'
+        else
+          Result := '모바일';
+
+      end;
+    rrs병원취소     : // Status_병원취소 = 'F03';
+      begin // 확정 전이나, 후냐에 다라 출력 문구 변경 해야함.
+//        if A접수확정 then
+//          Result := '취소'
+//        else
+//          Result := '취소';
+      if ARnRType = rrReception then
+          Result := '태블릿'
+        else
+          Result := '모바일';
+      end;
+    rrs자동취소     : Result := '만료'; // Result := '병원'; // Status_자동취소 = 'F04';
+    //rrs진료완료     : Result := '완료';  // Status_진료완료 = 'F05';
+    rrs진료완료     :
+    begin
+      if ARnRType = rrReception then
+        Result := '태블릿'
+      else
+        Result := '모바일';
+    end;
+  else  // rrsUnknown, // 알수 없는 상태
+    Result := '';
+  end;
+end;
+
+class function TRRDataTypeConvert.RnRDataStatus2DispStr(
+  ARnRType : TRnRType; A접수확정: Boolean; ARnRDataStatus: TRnRDataStatus): string;
+begin
+  case ARnRDataStatus of
+    rrs예약실패, // Status_예약실패 = 'S02';
+    rrs접수실패 : Result := '취소'; // Status_접수실패 = 'C02';
+
+    rrs예약요청, // Status_예약요청 = 'S01';
+    rrs예약완료, // Status_예약완료 = 'S03';
+    rrs접수요청, // Status_접수요청 = 'C01';
+    rrs접수완료,  // Status_접수완료 = 'C03';
+    rrs진료대기 :  // Status_진료대기 = 'C04';
+      begin
+        if ARnRType = rrReception then
+          //Result := '접수'
+          //Result := '내원'
+          Result := '태블릿'
+        else
+          Result := '모바일';
+      end;
+    rrs내원요청 :  // Status_내원요청 = 'C05';
+      begin
+        if ARnRType = rrReception then
+          //Result := '접수'
+          Result := '내원'
+        else
+          Result := '예약';
+      end;
+    rrs내원확정     : Result := '내원'; // Status_내원확정 = 'C06';
+    rrs진료차례     : Result := '진료중'; // Status_진료차례 = 'C07';
+    rrs취소요청     : Result := '취소요청'; // Status_취소요청 = 'F01';
+
+    rrs본인취소     : // Status_본인취소 = 'F02';
+      begin // 확정 전이나, 후냐에 다라 출력 문구 변경 해야함.
+        if A접수확정 then
+          Result := '철회'
+        else
+          Result := '취소';
+        //Result := '환자';
+      end;
+    rrs병원취소     : // Status_병원취소 = 'F03';
+      begin // 확정 전이나, 후냐에 다라 출력 문구 변경 해야함.
+        if A접수확정 then
+          Result := '취소'
+        else
+          Result := '취소';
+      end;
+    rrs자동취소     : Result := '만료'; // Result := '병원'; // Status_자동취소 = 'F04';
+    //rrs진료완료     : Result := '완료';  // Status_진료완료 = 'F05';
+    rrs진료완료     :
+    begin
+      if ARnRType = rrReception then
+        Result := '태블릿'
+      else
+        Result := '모바일';
+    end;
+  else  // rrsUnknown, // 알수 없는 상태
+    Result := '';
+  end;
+end;
+
+class function TRRDataTypeConvert.RnRGender2GenderType(
+  AGenderType: TRnRGenderType): string;
+begin
+  case AGenderType of
+    rrgtMale    :  Result := '1';
+    rrgtFemale  :  Result := '2';
+  else // rrgtUnknown
+    Result := '';
+  end;
+end;
+
+class function TRRDataTypeConvert.RnRInDevice2InDevice(
+  ARnRInDevice: TRnRInDevice): string;
+begin
+  Result := GRnRInDevice[ ARnRInDevice ];
+end;
+
+class function TRRDataTypeConvert.RnRType2DataType(ARnRType: TRnRType): string;
+begin
+  Result := RRType_Reception;
+  if ARnRType = rrReservation then
+    Result := RRType_Reservation;
+end;
+
+class function TRRDataTypeConvert.Status4App(
+  AStatus: TRnRDataStatus; AReceptionConfirmationDttm : TDateTime): TConvertState4App;
+begin
+  Result := csa요청;  // rrsUnknown
+  case AStatus of
+    rrs예약요청,
+    rrs접수요청       : exit;
+
+    rrs예약실패,
+    rrs접수실패       : Result := csa요청취소;
+
+    rrs접수완료,
+    rrs예약완료       : Result := csa환자확인;
+
+    rrs내원요청       : Result := csa환자확인Disable;
+
+    rrs내원확정,
+    rrs진료대기,
+    rrs진료차례       : Result := csa진료대기;
+
+    rrs진료완료       : Result := csa진료완료;
+
+    rrs취소요청,
+    rrs본인취소,
+    rrs병원취소,
+    rrs자동취소       :
+      begin
+        if AReceptionConfirmationDttm <> 0 then
+          Result := csa취소
+        else
+          Result := csa요청취소;
+      end;
+  end;
+end;
+
+{ TRoomInfo }
+
+procedure TRoomInfo.Assign(ASource: TRoomInfo);
+begin
+  RoomCode := ASource.RoomCode;  // 진료실 ID
+  RoomName := ASource.RoomName; // 진료실 이름
+  DeptCode := ASource.DeptCode; // 과목코드
+  DeptName := ASource.DeptName; // 과목명
+  DoctorCode := ASource.DoctorCode; // 의사 코드
+  DoctorName := ASource.DoctorName; // DoctorName
+end;
+
+initialization
+  initData;
+
+end.

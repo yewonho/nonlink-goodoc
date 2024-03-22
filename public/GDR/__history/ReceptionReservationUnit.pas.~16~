@@ -1,0 +1,828 @@
+unit ReceptionReservationUnit;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
+  SakpungStyleButton, RRObserverUnit, SakpungImageButton, SakpungEdit,
+  GDThread, SyncObjs,
+  BridgeCommUnit, GDBridge;
+
+type
+  TReceptionReservationForm = class(TForm)
+    ReceptionReservationPanel: TPanel;
+    Panel1: TPanel;
+    Label1: TLabel;
+    Timer1: TTimer;
+    ViewPanel: TPanel;
+    Panel2: TPanel;
+    SakpungImageButton1: TSakpungImageButton2;
+    SakpungImageButton2: TSakpungImageButton2;
+    SakpungImageButton21: TSakpungImageButton2;
+    refreshButton: TSakpungImageButton;
+    procedure Timer1Timer(Sender: TObject);
+    procedure SakpungImageButton1Click(Sender: TObject);
+    procedure SakpungImageButton2Click(Sender: TObject);
+    procedure Panel1Resize(Sender: TObject);
+    procedure SakpungImageButton21Click(Sender: TObject);
+    procedure refreshButtonClick(Sender: TObject);
+  private
+    { Private declarations }
+    is400Fire : Boolean;  // true이면 400호출을 시작 해야 한다.
+    FObserver : TRRObserver;
+    procedure BeforeEventNotify( AEventID : Cardinal; AData : TObserverData );
+    procedure AfterEventNotify( AEventID : Cardinal; AData : TObserverData );
+
+    procedure Set일월ButtonState( ASelectButton : Cardinal );
+  private
+    { Bridge Private declarations }
+    FLastChangeDttm : TDateTime;
+
+    procedure BridgePollingData( AJsonStr : string );
+    procedure BridgeLogNodify(ALogLevel : Integer; ALog : string);
+
+    // 지정된 내용으로 system error message를 반환 한다.
+    function ResponseSystemError( AJobID : string; ACode: Integer; AMessage: string) : TBridgeRequest_Nomal;
+
+    // 처리할 수 없는 요청 처리
+    function ResponseUnknownRequest( AEventID : Integer; AJobID : string; ACode: Integer; AMessage: string) : TBridgeRequest_Nomal;
+
+    procedure process_RoomList; // 대기열 목록 요청 및 처리해서 db에 저장 한다.
+    procedure process_CancelMsgList; // 취소 메시지 목록 요청 및 처리해서 db에 저장 한다.
+    function process_ReceptionReservationDayList : Integer; // 접수/예약 목록 요청 및 처리해서 db에 저장 한다. 반환값은 수신된 목록수
+    procedure process_UpdateReceptionReservation( chartReceptnResultId : TChartReceptnResultId ); // 접수/예약 목록 갱신해서 db에 저장한다.
+  private
+    { thread Private declarations }
+    FOldToday : tdate; // 오늘이 넘어 갔는지 check하기 위한 변수
+    FThread : TGDThread;
+    F400DataLock : TCriticalSection;
+
+    // event 400 data를 받아 온다.
+    function GetEvent400Data : Integer;
+    procedure GetEvent400DataASync;
+    procedure GetEvent406Data( chartReceptnResultId : TChartReceptnResultId );
+    procedure GetEvent406DataAsync( chartReceptnResultId : TChartReceptnResultId );
+
+    function ThreadExecute_Event400(Sender: TObject) : boolean;
+  public
+    { Public declarations }
+    constructor Create( AOwner : TComponent ); override;
+    destructor Destroy; override;
+
+    procedure ShowLoginPanel( AParentControl : TWinControl );
+  end;
+
+function GetReceptionReservationForm: TReceptionReservationForm;
+procedure FreeReceptionReservationForm;
+procedure ShowReceptionReservationForm;
+procedure UnvisibleReceptionReservationForm;
+
+implementation
+uses
+  System.DateUtils, GDJson, UtilsUnit, RRConst,
+  GDLog, ImageResourceDMUnit,
+  EventIDConst, RREnvUnit, RestCallUnit, RnRDMUnit, YSRDBDMUnit, IPRODBDMUnit, DentwebDBDMUnit, HanaroDBDMUnit,
+  ReceptionReservationBaseUnit, ReservationMonthBaseUnit, ReservationListBaseUnit;
+
+var
+  GReceptionReservationForm: TReceptionReservationForm;
+  recephold : boolean;
+
+{$R *.dfm}
+
+function GetReceptionReservationForm: TReceptionReservationForm;
+begin
+  if not Assigned( GReceptionReservationForm ) then
+    GReceptionReservationForm := TReceptionReservationForm.Create( nil );
+  Result := GReceptionReservationForm;
+end;
+
+procedure ShowReceptionReservationForm;
+begin
+  GetReceptionReservationForm.ReceptionReservationPanel.Visible := True;
+  GetReceptionReservationForm.ReceptionReservationPanel.BringToFront;
+end;
+procedure UnvisibleReceptionReservationForm;
+begin
+  GetReceptionReservationForm.ReceptionReservationPanel.SendToBack;
+  GetReceptionReservationForm.ReceptionReservationPanel.Visible := False;
+end;
+
+procedure FreeReceptionReservationForm;
+begin
+  if Assigned( GReceptionReservationForm ) then
+  begin
+    GReceptionReservationForm.ShowLoginPanel( nil );
+    FreeAndNil( GReceptionReservationForm );
+  end;
+end;
+
+{ TReceptionReservationForm }
+
+procedure TReceptionReservationForm.AfterEventNotify(AEventID: Cardinal;
+  AData: TObserverData);
+begin
+  case AEventID of
+    OB_Event_LoginOk : // login 완료
+      begin
+        TThread.CreateAnonymousThread(
+          procedure
+          begin
+            process_RoomList; // 대기열 목록 요청 및 처리해서 db에 저장 한다.
+            process_CancelMsgList; // 취소 메시지 목록 요청 및 처리해서 db에 저장 한다.
+
+            GetEvent400Data; // 최초 한번은 무조건 data를 받아 오게 한다.
+            is400Fire := True;
+          end).Start;
+      end;
+    OB_Event_Show_일,
+    OB_Event_Show_월,
+    OB_Event_Show_월_List :
+        Set일월ButtonState( AEventID );
+    OB_Event_400FireOn : is400Fire := True;
+    OB_Event_DataRefresh_DataReload : GetEvent400DataASync; // 일단위 data를 reload한다.
+  end;
+end;
+
+procedure TReceptionReservationForm.BeforeEventNotify(AEventID: Cardinal;
+  AData: TObserverData);
+begin
+  case AEventID of
+    OB_Event_400FireOff           : is400Fire := False;
+    OB_Event_Reload_RoomInfo      : process_RoomList; // 대기열 목록 요청 및 처리해서 db에 저장 한다.
+    OB_Event_Reload_CancelMessage : process_CancelMsgList; // 취소 메시지 목록 요청 및 처리해서 db에 저장 한다.
+  end;
+end;
+
+procedure TReceptionReservationForm.BridgeLogNodify(ALogLevel: Integer;
+  ALog: string);
+begin
+  AddLog(ALogLevel,'[TGDBridge] ' + ALog);
+end;
+
+procedure TReceptionReservationForm.BridgePollingData(AJsonStr: string);
+var
+  ret : Integer;
+  str : string;
+  refreshtype : Integer;
+  eventrequest : TBridgeResponse;
+  eventresponse : TBridgeRequest_Nomal;
+  blankFindPatientRequest : TBridgeRequest_1;
+  event_420 : TBridgeResponse_420;
+begin
+  eventrequest := nil;
+
+  eventrequest := GetBridgeFactory.MakeResponseObj( AJsonStr );
+  if not Assigned( eventrequest ) then
+  begin
+    eventresponse := TBridgeRequest_Nomal( GetBridgeFactory.MakeRequestObj( EventID_시스템Error ) );
+    eventresponse.Code := Result_NotDefineEvent;
+    eventresponse.MessageStr := '정의되지 않은 형태의 이벤트 입니다.';
+
+    GetBridge.PutResponse( eventresponse.ToJsonString );
+
+    AddLog(doRunLog, 'TReceptionReservationForm.BridgePollingData, 인지 할 수 없는 event id : ' +  AJsonStr);
+    FreeAndNil( eventresponse );
+    exit;// 인지 할수 없는 json data이다
+  end;
+  AddLog(doValueLog, 'TReceptionReservationForm.BridgePollingData : ' +  AJsonStr);
+  AddLog(doRunLog, format('TReceptionReservationForm.BridgePollingData : EventID=%d, JobID=%s', [eventrequest.EventID, eventrequest.JobID]) );
+
+  refreshtype := 0;
+  try
+    try
+      case eventrequest.EventID of
+        EventID_접수요청 :
+          begin
+            eventresponse := TBridgeRequest_Nomal(RnRDM.AddReceptionFake( TBridgeResponse_100( eventrequest ) ) );
+            refreshtype := OB_Event_DataRefresh_Reception;
+            //refreshtype := OB_Event_DataRefresh_DataReload;
+            //GetEvent400DataASync;
+          end;
+        EventID_접수취소 :
+          begin
+            eventresponse := TBridgeRequest_Nomal(RnRDM.CancelReception( TBridgeResponse_102( eventrequest ) ) );
+            refreshtype := OB_Event_DataRefresh_Reception;
+          end;
+        EventID_내원확인요청 :
+          begin
+            eventresponse := TBridgeRequest_Nomal(RnRDM.VisitConfirm( TBridgeResponse_110( eventrequest ) ) );
+            refreshtype := OB_Event_DataRefresh_Reception;
+          end;
+        EventID_예약요청  :
+          begin
+            eventresponse := TBridgeRequest_Nomal(RnRDM.AddReservation( TBridgeResponse_200( eventrequest ) ) );
+            refreshtype := OB_Event_DataRefresh_Reservation;
+          end;
+        EventID_예약취소  :
+          begin
+            eventresponse := TBridgeRequest_Nomal (RnRDM.CancelReservation( TBridgeResponse_202( eventrequest ) ) );
+            refreshtype := OB_Event_DataRefresh_Reservation;
+          end;
+        EventID_환자조회  :
+          begin
+            if GetRREnv.IsFindPatientEnabled then
+            begin
+              if GetRREnv.HookOCSType = THookOCSType.YSR then
+              begin
+                if not Assigned(YSRDBDM) then
+                begin
+                  AddLog(doRunLog, 'YSRDBDM.Create');
+                  YSRDBDM := TYSRDBDM.Create( nil );
+                end;
+
+                if not YSRDBDM.Active then
+                begin
+                  AddLog(doRunLog, 'YSRDBDM.Start');
+                  YSRDBDM.Start;
+                end;
+
+                if YSRDBDM.Active then
+                begin
+                  eventresponse := TBridgeRequest_Nomal (YSRDBDM.FindPatient(TBridgeResponse_0( eventrequest )));
+                end
+                else
+                begin
+                  AddLog(doRunLog, 'TReceptionReservationForm.BridgePollingData : YSRDBDM inactivated!');
+                  eventresponse := ResponseUnknownRequest(eventrequest.EventID, eventrequest.JobID, Result_NoRelation_NotDefineEvent_hook, Result_NoRelation_NotDefineEvent_Msg_hook);
+                end;
+              end
+              else if GetRREnv.HookOCSType = THookOCSType.IPro then
+              begin
+                if not Assigned(IPRODBDM) then
+                begin
+                  AddLog(doRunLog, 'IPRODBDM.Create');
+                  IPRODBDM := TIPRODBDM.Create( nil );
+                end;
+
+                if not IPRODBDM.Active then
+                begin
+                  AddLog(doRunLog, 'IPRODBDM.Start');
+                  IPRODBDM.Start;
+                end;
+
+                if IPRODBDM.Active then
+                begin
+                  eventresponse := TBridgeRequest_Nomal (IPRODBDM.FindPatient(TBridgeResponse_0( eventrequest )));
+                end
+                else
+                begin
+                  AddLog(doRunLog, 'TReceptionReservationForm.BridgePollingData : IPRODBDM inactivated!');
+                  eventresponse := ResponseUnknownRequest(eventrequest.EventID, eventrequest.JobID, Result_NoRelation_NotDefineEvent_hook, Result_NoRelation_NotDefineEvent_Msg_hook);
+                end;
+              end
+              else if GetRREnv.HookOCSType = THookOCSType.Dentweb then
+              begin
+                if not Assigned(DentwebDBDM) then
+                begin
+                  AddLog(doRunLog, 'DentwebDBDM.Create');
+                  DentwebDBDM := DentwebDBDM.Create(nil);
+                end;
+
+                if not DentwebDBDM.Active then
+                begin
+                  AddLog(doRunLog, 'DentwebDBDM.Start');
+                  DentwebDBDM.Start;
+                end;
+
+                if DentwebDBDM.Active then
+                begin
+                  eventresponse := TBridgeRequest_Nomal (DentwebDBDM.FindPatient(TBridgeResponse_0( eventrequest )));
+                end
+                else
+                begin
+                  AddLog(doRunLog, 'TReceptionReservationForm.BridgePollingData : DentwebDBDM inactivated!');
+                  eventresponse := ResponseUnknownRequest(eventrequest.EventID, eventrequest.JobID, Result_NoRelation_NotDefineEvent_hook, Result_NoRelation_NotDefineEvent_Msg_hook);
+                end;
+              end
+              else if GetRREnv.HookOCSType = THookOCSType.Hanaro then
+              begin
+                if not Assigned(HanaroDBDM) then
+                begin
+                  AddLog(doRunLog, 'HanaroDBDM.Create');
+                  HanaroDBDM := HanaroDBDM.Create(nil);
+                end;
+
+                if not HanaroDBDM.Active then
+                begin
+                  AddLog(doRunLog, 'HanaroDBDM.Start');
+                  HanaroDBDM.Start;
+                end;
+
+                if HanaroDBDM.Active then
+                begin
+                  eventresponse := TBridgeRequest_Nomal (HanaroDBDM.FindPatient(TBridgeResponse_0( eventrequest )));
+                end
+                else
+                begin
+                  AddLog(doRunLog, 'TReceptionReservationForm.BridgePollingData : HanaroDBDM inactivated!');
+                  eventresponse := ResponseUnknownRequest(eventrequest.EventID, eventrequest.JobID, Result_NoRelation_NotDefineEvent_hook, Result_NoRelation_NotDefineEvent_Msg_hook);
+                end;
+              end
+              else
+              begin
+                eventresponse := ResponseUnknownRequest(eventrequest.EventID, eventrequest.JobID, Result_NoRelation_NotDefineEvent, Result_NoRelation_NotDefineEvent_Msg);
+              end;
+            end
+            else
+            begin
+              // 환자조회 미사용 체크 시 1번 응답에 빈 환자값으로 넘긴다.
+              blankFindPatientRequest := TBridgeRequest_1( GetBridgeFactory.MakeRequestObj( EventID_환자조회결과, TBridgeResponse_0(eventrequest).JobID ) );
+              blankFindPatientRequest.HospitalNo := GetRREnv.HospitalID;
+              blankFindPatientRequest.Code := Result_SuccessCode;
+              blankFindPatientRequest.MessageStr := GetBridgeFactory.GetErrorString( Result_SuccessCode );
+
+              eventresponse := TBridgeRequest_Nomal (blankFindPatientRequest);
+            end;
+          end;
+        EventID_접수목록변경알림:
+          begin
+            eventresponse := TBridgeRequest_Nomal( TBridgeRequest_421( GetBridgeFactory.MakeRequestObj( EventID_접수목록변경알림결과, eventrequest.JobID ) ) );
+            eventresponse.Code := Result_SuccessCode;
+            GetEvent406DataAsync(TBridgeResponse_420( eventrequest ).chartReceptnResultId);
+            // refreshtype := OB_Event_DataRefresh_DataReload;
+          end;
+      else // 처리 할 수 없는 event id를 수신 했다.
+        //eventresponse := ResponseSystemError(eventrequest.JobID, Result_NoRelation_NotDefineEvent, Result_NoRelation_NotDefineEvent_Msg);
+        eventresponse := ResponseUnknownRequest(eventrequest.EventID, eventrequest.JobID, Result_NoRelation_NotDefineEvent_old, Result_NoRelation_NotDefineEvent_Msg_old);
+      end;
+    except
+      on e : exception do
+      begin
+        AddExceptionLog('TReceptionReservationForm.BridgePollingData 1', e);
+      end
+
+    end;
+
+    if Assigned( eventresponse ) then
+    begin
+      try
+        if not Application.Active then
+          FormFlash( True );
+
+        str := eventresponse.ToJsonString;
+        AddLog(doValueLog, '처리 결과 전송 : ' + str);
+        ret := GetBridge.PutResponse( str );
+        AddLog(doRunLog, format('TReceptionReservationForm.BridgePollingData 처리 결과 : EventID=%d, JobID=%s, Code=%d, Msg=%s, Result=%d', [eventresponse.EventID, eventresponse.JobID, eventresponse.Code, eventresponse.MessageStr, ret]) );
+        if ret <> Result_Success then
+        begin
+          AddLog(doRunLog, format('결과 전송 실패(EventID:%d, JobID:%s) : Result=%d', [eventresponse.EventID, eventresponse.JobID, ret]) );
+        end
+        else
+        begin
+          if refreshtype <> 0 then
+          begin
+            FObserver.BeforeAction(refreshtype);
+            FObserver.AfterAction(refreshtype);
+          end;
+        end;
+      except
+        on e : exception do
+        begin
+          AddExceptionLog('TReceptionReservationForm.BridgePollingData 2', e);
+          AddLog(doErrorLog, eventresponse.ToJsonString);
+        end;
+      end;
+      FreeAndNil( eventresponse );
+    end;
+  finally
+    FreeAndNil( eventrequest );
+  end;
+end;
+
+constructor TReceptionReservationForm.Create(AOwner: TComponent);
+begin
+  inherited;
+  is400Fire := False;
+  FLastChangeDttm := 0;
+
+  FObserver := TRRObserver.Create( nil );
+  FObserver.OnBeforeAction := BeforeEventNotify;
+  FObserver.OnAfterAction := AfterEventNotify;
+
+  F400DataLock := TCriticalSection.Create;
+
+  with GetBridge do
+  begin
+    OnBridgePollingData := BridgePollingData;
+    OnBridgeLogNodify := BridgeLogNodify;
+  end;
+
+  Timer1Timer( nil );
+
+  // ui를 미리 생성 한다. 순서를 변경하지 마라.
+  GetReceptionReservationBaseForm.ShowPanel( ViewPanel ); // 일단위
+  /// V4에서는 예약 기능이 삭제
+  //GetReservationMonthBaseForm.ShowPanel( ViewPanel ); // 월단위
+  //GetReservationListBaseForm.ShowPanel( ViewPanel ); // 예약 목록
+  ShowReceptionReservationBaseForm;  // 일단위 form show
+
+  FOldToday := Today;
+  //FThread := CreateGDThread( self, 'TReceptionReservationFormThread', 4000,  ThreadExecute_Event400, false);
+  //FThread.Start;
+end;
+
+destructor TReceptionReservationForm.Destroy;
+begin
+  //FThread.SafeTerminateThread;
+  //FreeAndNil( FThread );
+
+  FreeAndNil( F400DataLock );
+
+  FreeReceptionReservationBaseForm; // 일단위
+  // V4에서는 예약 기능이 삭제
+  //FreeReservationMonthBaseForm; // 월단위
+  //FreeReservationListBaseForm; // 예약 list
+
+  FreeAndNil( FObserver );
+
+  inherited;
+end;
+
+function TReceptionReservationForm.GetEvent400Data: Integer;
+var
+  isRefresh : Boolean;
+
+begin
+  F400DataLock.Enter;
+  try
+    try
+      isRefresh := FOldToday <> Today; // 오늘이 지났는지 check한다.
+      if isRefresh then
+        FOldToday := Today;
+
+      // 목록 요청 처리
+      Result := process_ReceptionReservationDayList;
+      isRefresh := isRefresh or (Result > 0);
+
+      if isRefresh then
+      begin // 화면 갱신
+        FObserver.BeforeAction(OB_Event_DataRefresh);
+        FObserver.AfterAction(OB_Event_DataRefresh);
+      end;
+
+       FObserver.AfterAction(OB_Event_DataRefresh_Notify);
+
+    except
+      on e : exception do
+      begin
+        Result := -1;
+        AddExceptionLog('TReceptionReservationForm.GetEvent400Data', e);
+      end;
+    end;
+  finally
+   F400DataLock.Release;
+  end;
+end;
+
+procedure TReceptionReservationForm.GetEvent400DataASync;
+begin
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      FObserver.BeforeAction( OB_Event_DataRefresh );
+      try
+        GetEvent400Data;
+      finally
+       FObserver.AfterActionASync( OB_Event_DataRefresh );
+      end;
+    end).Start;
+end;
+
+procedure TReceptionReservationForm.GetEvent406Data(chartReceptnResultId : TChartReceptnResultId);
+begin
+  F400DataLock.Enter;
+  try
+    try
+      // 목록 요청 처리
+      process_UpdateReceptionReservation(chartReceptnResultId);
+      FObserver.AfterAction(OB_Event_DataRefresh_Notify);
+
+    except
+      on e : exception do
+      begin
+        AddExceptionLog('TReceptionReservationForm.GetEvent406Data', e);
+      end;
+    end;
+  finally
+   F400DataLock.Release;
+  end;
+end;
+
+procedure TReceptionReservationForm.GetEvent406DataASync(chartReceptnResultId : TChartReceptnResultId);
+begin
+  TThread.CreateAnonymousThread(
+    procedure
+    begin
+      FObserver.BeforeAction( OB_Event_DataRefresh );
+      try
+        GetEvent406Data(chartReceptnResultId);
+      finally
+       FObserver.AfterActionASync( OB_Event_DataRefresh );
+      end;
+    end).Start;
+end;
+
+procedure TReceptionReservationForm.Panel1Resize(Sender: TObject);
+begin
+  Panel2.Left := Panel1.Width - Panel2.Width - 3;
+end;
+
+procedure TReceptionReservationForm.process_CancelMsgList;
+// 취소 메시지 목록 요청 및 처리해서 db에 저장 한다.
+var
+  event303 : string;
+  event_302 : TBridgeRequest_302;
+  baseresponse : TBridgeResponse;
+  event_303 : TBridgeResponse_303;
+begin
+  event_302 := TBridgeRequest_302( GetBridgeFactory.MakeRequestObj( EventID_취소메시지목록요청 ) );
+  try
+    event_302.HospitalNo := GetRREnv.HospitalID;
+    event303 := GetBridge.RequestResponse( event_302.ToJsonString );
+
+    baseresponse := GetBridgeFactory.MakeResponseObj( event303 );
+    try
+      if baseresponse.EventID <> EventID_취소메시지목록요청결과 then
+      begin // error 처리
+        exit;
+      end;
+      event_303 := TBridgeResponse_303( baseresponse );
+
+      // 수신된 room 정보를 table에 저장 한다.
+      RnRDM.PackCancelMsgTable( event_303 );
+    finally
+      FreeAndNil( baseresponse );
+    end;
+  finally
+    FreeAndNil( event_302);
+  end;
+end;
+
+function TReceptionReservationForm.process_ReceptionReservationDayList : Integer;
+// 접수/예약 목록 요청 및 처리해서 db에 저장 한다.
+var
+  flashcount : Integer;
+begin
+  flashcount := 0;
+  Result := RestCallDM.GetRRData( today, '', flashcount );
+  if flashcount > 0 then
+  begin
+    if not Application.Active then
+      FormFlash( True );
+  end;
+end;
+
+procedure TReceptionReservationForm.process_RoomList;
+// 대기열 목록 요청 및 처리해서 db에 저장 한다.
+var
+  event403 : string;
+  event_402 : TBridgeRequest_402;
+  baseresponse : TBridgeResponse;
+  event_403 : TBridgeResponse_403;
+begin
+  event_402 := TBridgeRequest_402( GetBridgeFactory.MakeRequestObj( EventID_대기열목록요청 ) );
+  try
+    event_402.HospitalNo := GetRREnv.HospitalID;
+
+    event403 := GetBridge.RequestResponse( event_402.ToJsonString );
+    baseresponse := GetBridgeFactory.MakeResponseObj( event403 );
+    try
+      if baseresponse.EventID <> EventID_대기열목록요청결과 then
+      begin // error 처리
+        exit;
+      end;
+      event_403 := TBridgeResponse_403( baseresponse );
+
+      FObserver.BeforeAction(OB_Event_RoomInfo_Change);
+      try
+        // 수신된 room 정보를 table에 저장 한다.
+        RnRDM.PackRoomTable( event_403 );
+      finally
+        FObserver.AfterAction(OB_Event_RoomInfo_Change);
+      end;
+    finally
+      FreeAndNil( baseresponse );
+    end;
+  finally
+    FreeAndNil( event_402);
+  end;
+end;
+
+procedure TReceptionReservationForm.process_UpdateReceptionReservation( chartReceptnResultId : TChartReceptnResultId );
+var
+  event_406 : TBridgeRequest_406;
+  baseresponse : TBridgeResponse;
+  event_407 : TBridgeResponse_407;
+  event_407result : string;
+begin
+  event_406 := TBridgeRequest_406( GetBridgeFactory.MakeRequestObj( EventID_접수예약목록건별요청 ) );
+  try
+    event_406.chartReceptnResultId.Id1 := chartReceptnResultId.Id1;
+    event_406.chartReceptnResultId.Id2 := chartReceptnResultId.Id2;
+    event_406.chartReceptnResultId.Id3 := chartReceptnResultId.Id3;
+    event_406.chartReceptnResultId.Id4 := chartReceptnResultId.Id4;
+    event_406.chartReceptnResultId.Id5 := chartReceptnResultId.Id5;
+    event_406.chartReceptnResultId.Id6 := chartReceptnResultId.Id6;
+
+    event_407result := GetBridge.RequestResponse( event_406.ToJsonString );
+    baseresponse := GetBridgeFactory.MakeResponseObj( event_407result );
+    try
+      if baseresponse.EventID <> EventID_접수예약목록건별요청결과 then
+      begin
+        exit;
+      end;
+      event_407 := TBridgeResponse_407( baseresponse );
+
+      FObserver.BeforeAction(OB_Event_DataRefresh);
+      try
+        // 수신된 room 정보를 table에 저장 한다.
+        RnRDM.UpdateReceptionReservation( event_407 );
+      finally
+        FObserver.AfterAction(OB_Event_DataRefresh);
+      end;
+    finally
+      FreeAndNil( baseresponse );
+    end;
+  finally
+    FreeAndNil( event_406 );
+  end;
+end;
+
+procedure TReceptionReservationForm.refreshButtonClick(Sender: TObject);
+begin
+  // get 400
+  GetEvent400Data;
+end;
+
+function TReceptionReservationForm.ResponseSystemError( AJobID : string; ACode: Integer;
+  AMessage: string) : TBridgeRequest_Nomal;
+begin
+  Result := TBridgeRequest_Nomal( GetBridgeFactory.MakeRequestObj( EventID_시스템Error, AJobID ) );
+  Result.Code := ACode;
+  Result.MessageStr := AMessage;
+end;
+
+function TReceptionReservationForm.ResponseUnknownRequest(AEventID: Integer; AJobID: string; ACode: Integer; AMessage: string) : TBridgeRequest_Nomal;
+begin
+  Result := TBridgeRequest_Nomal( GetBridgeFactory.MakeRequestObj(AEventID + 1, AJobID));
+  Result.Code := ACode;
+  Result.MessageStr := AMessage;
+end;
+
+procedure TReceptionReservationForm.SakpungImageButton1Click(Sender: TObject);
+begin
+  exit; /// V4에서는 예약 기능이 제거
+
+  FObserver.BeforeAction( OB_Event_Show_월 );
+  try
+    is400Fire := False;
+
+    // 월단위 화면으로 넘기기 위한 작업을 수행 한다.
+    ShowReservationMonthBaseForm;
+    UnvisibleReceptionReservationBaseForm;
+    UnvisibleReservationListBaseForm;
+  finally
+    FObserver.AfterAction( OB_Event_Show_월 );
+  end;
+
+  FObserver.BeforeAction( OB_Event_DataRefresh_Month );
+  FObserver.AfterActionASync( OB_Event_DataRefresh_Month );
+end;
+
+procedure TReceptionReservationForm.SakpungImageButton21Click(Sender: TObject);
+begin
+  exit; /// V4에서는 예약 기능이 제거
+
+  FObserver.BeforeAction( OB_Event_Show_일 );
+  try
+    // home화면 목록을 갱신 한다.
+    FObserver.BeforeAction(OB_Event_DataRefresh);
+    FObserver.AfterAction(OB_Event_DataRefresh);
+
+    is400Fire := True;
+    // 일단위 화면으로 넘기기 위한 작업을 수행 한다.
+    ShowReceptionReservationBaseForm;  // 일단위 form show
+    UnvisibleReservationMonthBaseForm;
+    UnvisibleReservationListBaseForm;
+  finally
+    FObserver.AfterAction( OB_Event_Show_일 );
+  end;
+end;
+
+procedure TReceptionReservationForm.SakpungImageButton2Click(Sender: TObject);
+begin
+  exit; /// V4에서는 예약 기능이 제거
+
+  FObserver.BeforeAction( OB_Event_Show_월_List );
+  try
+    is400Fire := False; // 월단위 화면으로 넘어 가면
+
+    // 월단위 list 화면으로 넘기기 위한 작업을 수행 한다.
+    ShowReservationListBaseForm;
+    UnvisibleReceptionReservationBaseForm;
+    UnvisibleReservationMonthBaseForm;
+  finally
+    FObserver.AfterAction( OB_Event_Show_월_List );
+  end;
+
+  FObserver.BeforeAction( OB_Event_DataRefresh_Month2 );
+  FObserver.AfterAction( OB_Event_DataRefresh_Month2 );
+end;
+
+procedure TReceptionReservationForm.Set일월ButtonState(
+  ASelectButton: Cardinal);
+begin
+  case ASelectButton of
+    OB_Event_Show_일 :
+      begin
+        SakpungImageButton21.ActiveButtonType := aibtButton2;
+        SakpungImageButton1.ActiveButtonType := aibtButton1;
+        SakpungImageButton2.ActiveButtonType := aibtButton1;
+      end;
+    OB_Event_Show_월 :
+      begin
+        SakpungImageButton21.ActiveButtonType := aibtButton1;
+        SakpungImageButton1.ActiveButtonType := aibtButton2;
+        SakpungImageButton2.ActiveButtonType := aibtButton1;
+      end;
+    OB_Event_Show_월_List :
+      begin
+        SakpungImageButton21.ActiveButtonType := aibtButton1;
+        SakpungImageButton1.ActiveButtonType := aibtButton1;
+        SakpungImageButton2.ActiveButtonType := aibtButton2;
+      end;
+  end;
+end;
+
+procedure TReceptionReservationForm.ShowLoginPanel(AParentControl: TWinControl);
+begin
+  if Assigned( AParentControl ) then
+  begin
+    SakpungImageButton21.Visible := False; // V4에서는 예약 기능 삭제
+    SakpungImageButton21.Enabled := False; // V4에서는 예약 기능 삭제
+    //SakpungImageButton21.PngImageList := ImageResourceDM.ButtonImageList28x18;
+    //ImageResourceDM.SetButtonImage(SakpungImageButton21, aibtButton1, BTN_Img_Home_Off);
+    //ImageResourceDM.SetButtonImage(SakpungImageButton21, aibtButton2, BTN_Img_Home_On);
+
+    SakpungImageButton1.Visible := False; // V4에서는 예약 기능 삭제
+    SakpungImageButton1.Enabled := False; // V4에서는 예약 기능 삭제
+    //SakpungImageButton1.PngImageList := ImageResourceDM.ButtonImageList28x18;
+    //ImageResourceDM.SetButtonImage(SakpungImageButton1, aibtButton1, BTN_Img_일_Off);
+    //ImageResourceDM.SetButtonImage(SakpungImageButton1, aibtButton2, BTN_Img_일_On);
+
+    SakpungImageButton2.Visible := False; // V4에서는 예약 기능 삭제
+    SakpungImageButton2.Enabled := False; // V4에서는 예약 기능 삭제
+    //SakpungImageButton2.PngImageList := ImageResourceDM.ButtonImageList28x18;
+    //ImageResourceDM.SetButtonImage(SakpungImageButton2, aibtButton1, BTN_Img_월_Off);
+    //ImageResourceDM.SetButtonImage(SakpungImageButton2, aibtButton2, BTN_Img_월_On);
+
+    Set일월ButtonState( OB_Event_Show_일 );
+
+    ReceptionReservationPanel.Parent := AParentControl;
+    ReceptionReservationPanel.Align := alClient;
+
+    Timer1Timer( nil ); // 시간 출력
+  end
+  else
+  begin
+    if Assigned(ReceptionReservationPanel) then
+    begin
+      ReceptionReservationPanel.Visible := False;
+      ReceptionReservationPanel.Parent := Self;
+      ReceptionReservationPanel.Align := alNone;
+    end;
+  end;
+end;
+
+function TReceptionReservationForm.ThreadExecute_Event400(
+  Sender: TObject): boolean;
+begin
+  Result := True;
+
+  // login이 되면 실행되게 한다.
+  if not is400Fire then
+    exit;
+
+  // 목록 요청 처리
+   GetEvent400Data;
+end;
+
+procedure TReceptionReservationForm.Timer1Timer(Sender: TObject);
+const
+  days: array[1..7] of string = ('일','월','화','수','목','금','토');
+var
+  aa, bb : string;
+begin
+  aa := days[ DayOfWeek(now) ];
+  bb := FormatDateTime('yyyy년 mm월 dd일 ([요일]) hh:nn:ss', now);
+  Label1.Caption := StringReplace(bb, '[요일]', aa, [rfReplaceAll]);
+end;
+
+initialization
+  GReceptionReservationForm := nil;
+
+finalization
+
+end.

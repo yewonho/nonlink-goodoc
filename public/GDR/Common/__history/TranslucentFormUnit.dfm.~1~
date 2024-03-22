@@ -1,0 +1,21 @@
+object TranslucentForm: TTranslucentForm
+  Left = 0
+  Top = 0
+  AlphaBlend = True
+  AlphaBlendValue = 150
+  BorderStyle = bsNone
+  Caption = 'TranslucentForm'
+  ClientHeight = 146
+  ClientWidth = 224
+  Color = clBtnFace
+  Font.Charset = ANSI_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = #44404#47548
+  Font.Style = []
+  OldCreateOrder = False
+  StyleElements = []
+  OnShow = FormShow
+  PixelsPerInch = 96
+  TextHeight = 11
+end

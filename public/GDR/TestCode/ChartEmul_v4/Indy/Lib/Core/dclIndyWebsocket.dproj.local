@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+  <Transactions>
+    <Transaction>2021-06-18 11:56:41.798,=rtl.dcp</Transaction>
+    <Transaction>2021-06-18 11:56:43.372,=C:\Dev\Goodoc\git\goodoc_v3unlink\GDReceptionReservation\TestCode\ChartEmul_v3\Indy\Lib\Core\IdWebSocketSimpleClient.pas</Transaction>
+    <Transaction>2021-06-18 11:56:43.375,=designide.dcp</Transaction>
+    <Transaction>2021-06-18 11:56:43.378,=vcl.dcp</Transaction>
+    <Transaction>2021-06-18 11:56:43.382,=vclactnband.dcp</Transaction>
+    <Transaction>2021-06-18 11:56:43.385,=vclx.dcp</Transaction>
+    <Transaction>2021-06-18 11:56:43.388,=xmlrtl.dcp</Transaction>
+    <Transaction>2021-06-18 11:56:56.072,=IndySystem.dcp</Transaction>
+    <Transaction>2021-06-18 11:56:56.080,=IndyProtocols.dcp</Transaction>
+    <Transaction>2021-06-18 11:56:56.089,=IndyCore.dcp</Transaction>
+  </Transactions>
+</BorlandProject>

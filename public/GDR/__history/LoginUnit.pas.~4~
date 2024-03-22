@@ -1,0 +1,716 @@
+unit LoginUnit;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
+  SakpungStyleButton, Vcl.Imaging.pngimage, RRObserverUnit,
+  SakpungImageButton, SakpungEdit;
+
+type
+  TLoginForm = class(TForm)
+    LoginPanel: TPanel;
+    Panel2: TPanel;
+    SakpungImageButton1: TSakpungImageButton;
+    pw_edit: TSakpungEdit;
+    id_edit: TSakpungEdit;
+    SakpungImageButton2: TSakpungImageButton;
+    SakpungImageButton3: TSakpungImageButton;
+    AutoLoginTimer: TTimer;
+    loginerrormessage_label: TLabel;
+    Label1: TLabel;
+    Label2: TLabel;
+    Image1: TImage;
+    bg_login_id_0: TImage;
+    bg_login_pw_0: TImage;
+    bg_login_id_1: TImage;
+    bg_login_id_2: TImage;
+    bg_login_pw_1: TImage;
+    bg_login_pw_2: TImage;
+    cb_login_autologin_off: TImage;
+    cb_login_autologin_on: TImage;
+    cb_login_startup_off: TImage;
+    cb_login_startup_on: TImage;
+    Image2: TImage;
+    ic_login_pweye_0: TImage;
+    ic_login_pweye_1: TImage;
+    Button1: TButton;
+    Button2: TButton;
+    procedure LoginPanelResize(Sender: TObject);
+    procedure SakpungImageButton1Click(Sender: TObject);
+    procedure SakpungImageButton2Click(Sender: TObject);
+    procedure SakpungImageButton3Click(Sender: TObject);
+    procedure pw_editKeyPress(Sender: TObject; var Key: Char);
+    procedure id_editKeyPress(Sender: TObject; var Key: Char);
+    procedure AutoLoginTimerTimer(Sender: TObject);
+    procedure autologin_checkClick(Sender: TObject);
+    procedure Label1Click(Sender: TObject);
+    procedure autostart_checkClick(Sender: TObject);
+    procedure Label2Click(Sender: TObject);
+    procedure id_editEnter(Sender: TObject);
+    procedure id_editExit(Sender: TObject);
+    procedure pw_editEnter(Sender: TObject);
+    procedure pw_editExit(Sender: TObject);
+    procedure ic_login_pweyeToggle(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
+  private
+    { Private declarations }
+    isFirstLogin : Boolean;
+    isCheckBoxClick : Boolean; // checkbox click시에 click event를 실행할지 결정 한다. true면 실행 한다.
+    isShowPasswordCharacter : Boolean;
+    function initBridge : Boolean;
+    // 요양기관 변호와 같은 id인지 check한다.
+    function selfLoginCheck( AID : string ) : Boolean; // 요양기관번호와 aid가 같으면 true이다.
+    procedure SetIDTextBoxState( state : integer );
+    procedure SetPWTextBoxState( state : integer );
+    procedure SetVisibilityPasswordIcon( show : Boolean );
+  private
+    { Private declarations }
+    FObserver : TRRObserver;
+    procedure BeforeEventNotify( AEventID : Cardinal; AData : TObserverData );
+    procedure AfterEventNotify( AEventID : Cardinal; AData : TObserverData );
+  public
+    { Public declarations }
+    constructor Create( AOwner : TComponent ); override;
+    destructor Destroy; override;
+
+    procedure ShowLoginPanel( AParentControl : TWinControl );
+    procedure initUI;
+  end;
+
+function GetLoginForm : TLoginForm;
+procedure ShowLoginForm;
+procedure UnvisibleLoginform;
+procedure FreeLoginForm;
+
+implementation
+uses
+  EventIDConst, RRDialogs, GDLog, UtilsUnit,
+  rrenvunit, BridgeWrapperUnit,
+  BridgeCommUnit, GDTaskSchedulerUnit,
+  OCSHookLoader, OCSHookAPI;
+
+var
+  GLoginForm: TLoginForm;
+
+{$R *.dfm}
+
+function GetLoginForm : TLoginForm;
+begin
+  if not Assigned( GLoginForm ) then
+    GLoginForm := TLoginForm.Create( nil );
+  Result := GLoginForm;
+end;
+procedure ShowLoginForm;
+begin
+  GetLoginForm.LoginPanel.Visible := True;
+  GetLoginForm.LoginPanel.BringToFront;
+  GetLoginForm.initUI;
+end;
+procedure UnvisibleLoginform;
+begin
+  GetLoginForm.LoginPanel.Visible := False;
+  GetLoginForm.LoginPanel.SendToBack;
+end;
+
+procedure FreeLoginForm;
+begin
+  if Assigned( GLoginForm ) then
+  begin
+    GLoginForm.ShowLoginPanel( nil );
+    FreeAndNil( GLoginForm );
+  end;
+end;
+
+procedure TLoginForm.AfterEventNotify(AEventID: Cardinal; AData: TObserverData);
+begin
+
+end;
+
+procedure TLoginForm.AutoLoginTimerTimer(Sender: TObject);
+begin
+  AutoLoginTimer.Enabled := False;
+  SakpungImageButton1.Click;
+end;
+
+procedure TLoginForm.autologin_checkClick(Sender: TObject);
+begin
+  if not isCheckBoxClick then
+    exit;
+
+  GetRREnv.AutoLoginCheck := not GetRREnv.AutoLoginCheck;
+  cb_login_autologin_off.Visible := not GetRREnv.AutoLoginCheck;
+  cb_login_autologin_on.Visible := GetRREnv.AutoLoginCheck;
+
+  GetRREnv.Save;
+end;
+
+procedure TLoginForm.autostart_checkClick(Sender: TObject);
+var
+  ts : TGDTaskScheduleManager;
+begin
+  if not isCheckBoxClick then
+    exit;
+
+  ts := GetTaskScheduleManager;
+  if not GetRREnv.AutoStartCheck then
+  begin  // 스케줄러에 등록
+    if not ts.AddSchedule4LogonStart( Goodoc_Schedule_Task_Name, Goodoc_Schedule_Task_Description, Application.ExeName ) then
+    begin
+      loginerrormessage_label.Caption := ts.ErrorMessage;
+      AddLog(doErrorLog, 'TaskSchedule 등록 Error : ' + loginerrormessage_label.Caption);
+      exit;
+    end;
+  end
+  else
+  begin // 스케줄러에 삭제
+    if ts.ScheduleExists( Goodoc_Schedule_Task_Name ) then
+    begin // 삭제 대상이 있다.
+      if not ts.DeleteSchedule( Goodoc_Schedule_Task_Name ) then
+      begin
+        loginerrormessage_label.Caption := ts.ErrorMessage;
+        AddLog(doErrorLog, 'TaskSchedule 삭제 Error : ' + loginerrormessage_label.Caption);
+        exit;
+      end;
+    end;
+  end;
+
+  GetRREnv.AutoStartCheck := not GetRREnv.AutoStartCheck;
+  cb_login_startup_off.Visible := not GetRREnv.AutoStartCheck;
+  cb_login_startup_on.Visible := GetRREnv.AutoStartCheck;
+
+  GetRREnv.Save;
+end;
+
+procedure TLoginForm.BeforeEventNotify(AEventID: Cardinal; AData: TObserverData);
+begin
+
+end;
+
+procedure TLoginForm.Button1Click(Sender: TObject);
+var
+  ret : integer;
+  retStr : string;
+  patientdata : TREQPATIENTINFO;
+  pdata : PREQPATIENTINFO;
+  atmp : AnsiString;
+  ocshook : TOCSHookDLLLoader;
+  env : TRREnv;
+begin
+{$ifndef DEBUG}
+  exit;
+{$endif}
+
+  // load ocs dll
+  env := GetRREnv;
+  ocshook := GetOCSHookLoader;
+
+  if not ocshook.isOCSHookDLLLoad then
+  begin
+    ocshook.OCSType := TOCSType( env.HookOCSType );
+
+{$IFNDEF DEBUG} // 디버그 상태에서는 None을 에뮬레이터 연동으로 본다.
+    if ocshook.OCSType = TOCSType.None then
+      exit;
+{$ENDIF}
+
+    ocshook.Load;
+    ocshook.Init;
+  end;
+
+  // macro
+  ocshook := GetOCSHookLoader;
+
+  FillChar(patientdata, sizeof(TREQPATIENTINFO), 0);
+  patientdata.unFirstVisit := 1;
+
+  //patientdata.unID := StrToInt(FShowData.ChartReceptnResultId.Id1);
+  atmp := AnsiString( '!@#$%' );
+  Move(atmp[1], patientdata.szID, Length(atmp)); // patientdata.szID := FShwoData.GetCharReceptnResultId;
+  atmp := AnsiString( '1' );
+  Move(atmp[1], patientdata.szCNo, Length(atmp)); // patientdata.szCNo := FShowData.PatientChartID;
+  atmp := ANsiString( 'memo' );
+  Move(atmp[1], patientdata.szMemo, Length(atmp)); // patientdata.szMemo := FShowData.Memo;
+  patientdata.unSex := Cardinal(1);
+  atmp := AnsiString( '환자 이름' );
+  Move(atmp[1], patientdata.szName, Length(atmp)); // patientdata.szName := FShowData.PatientName;
+  atmp := AnsiString( '환자 주소' );
+  Move(atmp[1], patientdata.szAddress, Length(atmp)); // patientdata.szAddress := FShowData.Addr;
+
+  atmp := AnsiString( '우편번호' );
+  Move(atmp[1], patientdata.szZip, Length(atmp)); // patientdata.szAddress := FShowData.Zip;
+
+  atmp := AnsiString( '9901011000000' );
+  Move(atmp[1], patientdata.szSocialNum, Length(atmp)); // patientdata.szSocialNum := FShowData.Registration_number;
+  atmp := AnsiString( '01011112222' );
+  Move(atmp[1], patientdata.szCellPhone, Length(atmp)); // patientdata.szCellPhone := FShowData.CellPhone;
+  atmp := AnsiString( '19990101' );
+  Move(atmp[1], patientdata.szBirthday, Length(atmp)); // patientdata.szBirthday := FShowData.BirthDay;
+  atmp := AnsiString( '진료실' );
+  Move(atmp[1], patientdata.szRoom, Length(atmp)); // patientdata.szRoom := FShowData.RoomInfo.RoomName;
+  pdata := @patientdata;
+
+  AddLog( doRunLog, '승인 처리 : ' + IntToStr(patientdata.unID) );
+  ret := ocshook.InsertPatient( pdata );
+  AddLog( doRunLog, '승인 처리 결과 : ' + IntToStr(ret) );
+
+  if ret = 0 then
+  begin
+    // 요청 성공. data lock
+
+  end
+  else
+  begin
+    // 요청 실패
+    retStr := ocshook.GetOCSErrorMessage(ret);
+    if retStr <> '' then
+    begin
+      MessageDlg(retStr, mtInformation, [mbOK], 0, mbOK);
+      //ShowGDMsgDlg(retStr, GetTransFormHandle, mtInformation, [mbOK]);
+    end;
+  end;
+
+    // unload
+//  if ocshook.isOCSHookDLLLoad then
+//  begin
+//    ocshook.Stop;
+//    ocshook.Unload;
+//  end;
+end;
+
+procedure TLoginForm.Button2Click(Sender: TObject);
+var
+  ret : integer;
+  retStr : string;
+  patientdata : TREQPATIENTINFO;
+  pdata : PREQPATIENTINFO;
+  atmp : AnsiString;
+  ocshook : TOCSHookDLLLoader;
+  env : TRREnv;
+begin
+{$ifndef DEBUG}
+  exit;
+{$endif}
+
+  // load ocs dll
+  env := GetRREnv;
+  ocshook := GetOCSHookLoader;
+
+  if not ocshook.isOCSHookDLLLoad then
+  begin
+    ocshook.OCSType := TOCSType( env.HookOCSType );
+
+{$IFNDEF DEBUG} // 디버그 상태에서는 None을 에뮬레이터 연동으로 본다.
+    if ocshook.OCSType = TOCSType.None then
+      exit;
+{$ENDIF}
+
+    ocshook.Load;
+    ocshook.Init;
+  end;
+
+  // macro
+  ocshook := GetOCSHookLoader;
+
+  FillChar(patientdata, sizeof(TREQPATIENTINFO), 0);
+  patientdata.unFirstVisit := 0;
+
+  //patientdata.unID := StrToInt(FShowData.ChartReceptnResultId.Id1);
+  atmp := AnsiString( '!@#$%' );
+  Move(atmp[1], patientdata.szID, Length(atmp)); // patientdata.szID := FShwoData.GetCharReceptnResultId;
+  atmp := AnsiString( '1' );
+  Move(atmp[1], patientdata.szCNo, Length(atmp)); // patientdata.szCNo := FShowData.PatientChartID;
+  atmp := ANsiString( 'memo' );
+  Move(atmp[1], patientdata.szMemo, Length(atmp)); // patientdata.szMemo := FShowData.Memo;
+  patientdata.unSex := Cardinal(1);
+  atmp := AnsiString( '환자 이름' );
+  Move(atmp[1], patientdata.szName, Length(atmp)); // patientdata.szName := FShowData.PatientName;
+  atmp := AnsiString( '환자 주소' );
+  Move(atmp[1], patientdata.szAddress, Length(atmp)); // patientdata.szAddress := FShowData.Addr;
+
+  atmp := AnsiString( '우편번호' );
+  Move(atmp[1], patientdata.szZip, Length(atmp)); // patientdata.szAddress := FShowData.Zip;
+
+  atmp := AnsiString( '9901011000000' );
+  Move(atmp[1], patientdata.szSocialNum, Length(atmp)); // patientdata.szSocialNum := FShowData.Registration_number;
+  atmp := AnsiString( '01011112222' );
+  Move(atmp[1], patientdata.szCellPhone, Length(atmp)); // patientdata.szCellPhone := FShowData.CellPhone;
+  atmp := AnsiString( '19990101' );
+  Move(atmp[1], patientdata.szBirthday, Length(atmp)); // patientdata.szBirthday := FShowData.BirthDay;
+  atmp := AnsiString( '진료실' );
+  Move(atmp[1], patientdata.szRoom, Length(atmp)); // patientdata.szRoom := FShowData.RoomInfo.RoomName;
+  pdata := @patientdata;
+
+  AddLog( doRunLog, '승인 처리 : ' + IntToStr(patientdata.unID) );
+  ret := ocshook.InsertPatient( pdata );
+  AddLog( doRunLog, '승인 처리 결과 : ' + IntToStr(ret) );
+
+  if ret = 0 then
+  begin
+    // 요청 성공. data lock
+
+  end
+  else
+  begin
+    // 요청 실패
+    retStr := ocshook.GetOCSErrorMessage(ret);
+    if retStr <> '' then
+    begin
+      MessageDlg(retStr, mtInformation, [mbOK], 0, mbOK);
+      //ShowGDMsgDlg(retStr, GetTransFormHandle, mtInformation, [mbOK]);
+    end;
+  end;
+end;
+
+constructor TLoginForm.Create(AOwner: TComponent);
+begin
+  inherited;
+  isFirstLogin := False;
+  isCheckBoxClick := True;
+  FObserver := TRRObserver.Create( nil );
+  FObserver.OnBeforeAction := BeforeEventNotify;
+  FObserver.OnAfterAction := AfterEventNotify;
+
+  loginerrormessage_label.Caption := '';
+end;
+
+destructor TLoginForm.Destroy;
+begin
+  FreeAndNil( FObserver );
+
+  inherited;
+end;
+
+procedure TLoginForm.ic_login_pweyeToggle(Sender: TObject);
+begin
+  isShowPasswordCharacter := not isShowPasswordCharacter;
+  SetVisibilityPasswordIcon(isShowPasswordCharacter);
+
+  if isShowPasswordCharacter then
+    pw_edit.PasswordChar := #0 // null
+  else
+    pw_edit.PasswordChar := #42; // '*'
+
+end;
+
+procedure TLoginForm.id_editEnter(Sender: TObject);
+begin
+  SetIDTextBoxState(1);
+end;
+
+procedure TLoginForm.id_editExit(Sender: TObject);
+begin
+  SetIDTextBoxState(0);
+end;
+
+procedure TLoginForm.id_editKeyPress(Sender: TObject; var Key: Char);
+begin
+  if key = #13 then
+  begin
+    Key := #0;
+    pw_edit.SetFocus;
+  end;
+end;
+
+function TLoginForm.initBridge: Boolean;
+var
+  ret : Boolean;
+  env : TRREnv;
+begin
+  env := GetRREnv;
+
+  if BridgeWrapperDM.BridgeActivate then
+  begin
+    Result := True;
+    BridgeWrapperDM.InitInfo( env.HospitalID, env.ChartCode ); // hospitalid, chartcode만 설정 한다.
+    exit;
+  end;
+
+  Result := False;
+
+  if (env.HospitalID = '') or (env.ChartCode = 0) then
+  begin // 사용할 수 있는 환경이 아니다
+    GDMessageDlg( '굿닥 접수/예약 환경을 초기화 할 수 없습니다.' + #13#10 + '환경 설정에서 병원 정보를 입력 하세요', mtWarning, [mbOK], 0);
+    exit;
+  end;
+
+  ret := BridgeWrapperDM.Init( env.HospitalID, env.ChartCode );
+  if not ret then
+  begin
+    GDMessageDlg( Format('%s(%d)',[BridgeWrapperDM.LastResultCodeMessage, BridgeWrapperDM.LastResultCode]) , mtWarning, [mbOK], 0);
+    exit;
+  end;
+  Result := BridgeWrapperDM.BridgeActivate;
+end;
+
+procedure TLoginForm.initUI;
+begin
+  loginerrormessage_label.Caption := '';
+
+  isCheckBoxClick := False;
+  try
+    cb_login_autologin_off.Visible := not GetRREnv.AutoLoginCheck;
+    cb_login_autologin_on.Visible := GetRREnv.AutoLoginCheck;
+
+    if GetRREnv.AutoLoginCheck then
+    begin
+      id_edit.Text := GetRREnv.ID;
+      pw_edit.Text := GetRREnv.PW;
+      AutoLoginTimer.Enabled := not isFirstLogin; // 한번만 실행하게 한다.
+    end;
+    cb_login_startup_off.Visible := not GetRREnv.AutoStartCheck;
+    cb_login_startup_on.Visible := GetRREnv.AutoStartCheck;
+  finally
+    isCheckBoxClick := True;
+  end;
+
+  SetIDTextBoxState(0);
+  SetPWTextBoxState(0);
+  id_edit.SetFocus;
+
+  isShowPasswordCharacter := False;
+  SetVisibilityPasswordIcon(isShowPasswordCharacter);
+
+{$ifdef DEBUG}
+  Button1.Visible := True;
+  Button2.Visible := True;
+{$else}
+  Button1.Visible := False;
+  Button2.Visible := False;
+{$endif}
+end;
+
+procedure TLoginForm.Label1Click(Sender: TObject);
+begin
+  GetRREnv.AutoLoginCheck := not GetRREnv.AutoLoginCheck;
+  cb_login_autologin_off.Visible := not GetRREnv.AutoLoginCheck;
+  cb_login_autologin_on.Visible := GetRREnv.AutoLoginCheck;
+end;
+
+procedure TLoginForm.Label2Click(Sender: TObject);
+begin
+  GetRREnv.AutoStartCheck := not GetRREnv.AutoStartCheck;
+  cb_login_startup_off.Visible := not GetRREnv.AutoStartCheck;
+  cb_login_startup_on.Visible := GetRREnv.AutoStartCheck;
+end;
+
+procedure TLoginForm.LoginPanelResize(Sender: TObject);
+var
+  t : TPanel;
+begin
+  t := TPanel( Sender );
+  Panel2.Left := (t.Width - Panel2.Width) div 2;
+  Panel2.Top := (t.Height - Panel2.Height) div 2;
+end;
+
+procedure TLoginForm.pw_editEnter(Sender: TObject);
+begin
+  SetPWTextBoxState(1);
+end;
+
+procedure TLoginForm.pw_editExit(Sender: TObject);
+begin
+  SetPWTextBoxState(0);
+end;
+
+procedure TLoginForm.pw_editKeyPress(Sender: TObject; var Key: Char);
+begin
+  if key = #13 then
+  begin
+    Key := #0;
+    SakpungImageButton1.Click;
+  end;
+end;
+
+procedure TLoginForm.SakpungImageButton1Click(Sender: TObject);
+var
+  ret : Integer;
+  cur : TCursor;
+  retStr : string;
+  ocshook : TOCSHookDLLLoader;
+  env : TRREnv;
+begin
+  isFirstLogin := True;
+  AutoLoginTimer.Enabled := False;
+
+  if Trim( id_edit.Text ) = ''  then
+  begin
+    loginerrormessage_label.Caption := '아이디를 입력해주세요';
+    SetIDTextBoxState(2);
+    if Trim( pw_edit.Text ) = '' then
+    begin
+      loginerrormessage_label.Caption := '아이디와 비밀번호를 모두 입력해주세요';
+      SetPWTextBoxState(2);
+    end;
+    //id_edit.SetFocus;
+    exit;
+  end;
+
+  if Trim( pw_edit.Text ) = ''  then
+  begin
+    loginerrormessage_label.Caption := '비밀번호를 입력해주세요';
+    SetPWTextBoxState(2);
+    //pw_edit.SetFocus;
+    exit;
+  end;
+
+  if not selfLoginCheck( id_edit.Text ) then
+  begin
+    loginerrormessage_label.Caption := '아이디를 확인해주세요';
+    //id_edit.SetFocus;
+    SetIDTextBoxState(2);
+    exit;
+  end;
+
+  cur := Screen.Cursor;
+  try
+    Screen.Cursor := crAppStart;
+    // ret := BridgeWrapperDM.Login( id_edit.Text + '@goodoc.co.kr', pw_edit.Text );
+    ret := BridgeWrapperDM.Login( StrToUInt(GetRREnv.HospitalID), id_edit.Text, pw_edit.Text );
+  finally
+    Screen.Cursor := cur;
+  end;
+
+  AddLog(doWarningLog, Format('Login Result : %d',[ret]));
+  if ret = Result_SuccessCode then
+  begin
+    GetRREnv.LoginOk := True;
+    GetRREnv.AutoLoginCheck := cb_login_autologin_on.Visible;
+    if cb_login_autologin_on.Visible then
+      GetRREnv.SetLogin(id_edit.Text, pw_edit.Text, '')
+    else
+      GetRREnv.SetLogin('', '', '');
+
+    if not initBridge then
+    begin
+      AddLog(doErrorLog, 'Bridge init is fail.' );
+      exit;
+    end;
+
+    FObserver.BeforeAction( OB_Event_LoginOk );
+    try
+    finally
+      FObserver.AfterAction( OB_Event_LoginOk );
+    end;
+
+
+    env := GetRREnv;
+    ocshook := GetOCSHookLoader;
+
+      if not ocshook.isOCSHookDLLLoad then
+      begin
+        ocshook.OCSType := TOCSType( env.HookOCSType );
+
+        ocshook.Load;
+        ocshook.Init;
+
+      end;
+
+          if ocshook.OCSType = TOCSType.None then
+            begin
+            exit;
+            end
+          else
+          begin
+          ret := ocshook.Check;
+          retStr := ocshook.GetOCSErrorMessage(ret);
+          if retStr <> '' then
+            begin
+              MessageDlg(retStr, mtInformation, [mbOK], 0, mbOK);
+            end;
+          end;
+
+  end
+  else
+  begin
+    if ret = 18 then
+      loginerrormessage_label.Caption := '아이디 또는 비밀번호를 다시 확인해주세요.'
+    else
+      loginerrormessage_label.Caption := BridgeWrapperDM.LastResultCodeMessage;
+    //pw_edit.SetFocus;
+    SetIDTextBoxState(2);
+    SetPWTextBoxState(2);
+  end;
+end;
+
+procedure TLoginForm.SakpungImageButton2Click(Sender: TObject);
+begin // 1:1 채팅
+  FObserver.BeforeAction( OB_Event_1_1_Chat );
+  try
+  finally
+    FObserver.AfterAction( OB_Event_1_1_Chat );
+  end;
+end;
+
+procedure TLoginForm.SakpungImageButton3Click(Sender: TObject);
+begin
+  (*FObserver.BeforeAction( OB_Event_UserMenualDownLoad );
+  try
+  finally
+    FObserver.AfterAction( OB_Event_UserMenualDownLoad );
+  end;*)
+  // 원격 지원 버튼으로 변경됨
+  _BrowserOpen( 'https://www.898.tv/o2ogoodoc' );
+end;
+
+function TLoginForm.selfLoginCheck(AID: string): Boolean;
+var
+  hid : string;
+begin
+  //hid := GetRREnv.HospitalID;
+  //Result := hid.CompareTo( AID ) = 0;
+  Result := True; // V4에서는 요양기관번호 대신 ID를 사용
+end;
+
+procedure TLoginForm.ShowLoginPanel(AParentControl: TWinControl);
+begin
+  if Assigned( AParentControl ) then
+  begin
+    LoginPanel.Parent := AParentControl;
+    LoginPanel.Align := alClient;
+    //LoginPanelResize(LoginPanel);
+  end
+  else
+  begin
+    LoginPanel.Visible := False;
+    LoginPanel.Parent := Self;
+    LoginPanel.Align := alClient;
+  end;
+end;
+
+procedure TLoginForm.SetIDTextBoxState(state: Integer);
+begin
+  bg_login_id_0.Visible := (state = 0);
+  bg_login_id_1.Visible := (state = 1);
+  bg_login_id_2.Visible := (state = 2);
+  if state <> 0 then
+    id_edit.Color := PaletteRGB($FA, $FA, $FC)
+  else
+    id_edit.Color := clWhite;
+end;
+
+procedure TLoginForm.SetPWTextBoxState(state: Integer);
+begin
+  bg_login_pw_0.Visible := (state = 0);
+  bg_login_pw_1.Visible := (state = 1);
+  bg_login_pw_2.Visible := (state = 2);
+  if state <> 0 then
+    pw_edit.Color := PaletteRGB($FA, $FA, $FC)
+  else
+    pw_edit.Color := clWhite;
+end;
+
+procedure TLoginForm.SetVisibilityPasswordIcon(show: Boolean);
+begin
+  ic_login_pweye_0.Visible := not show;
+  ic_login_pweye_1.Visible := show;
+end;
+
+initialization
+  GLoginForm := nil;
+
+finalization
+
+end.
