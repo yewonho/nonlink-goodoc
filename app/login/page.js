@@ -16,6 +16,7 @@ export default function login(){
                 </div>
                 <div className="input-Pwcontainer">
                     <input type="password" placeholder="비밀번호"/>
+                    <img src="/GDR/ic_login_eye_closed.png" alt="eye_closed"/>
                 </div>
 
                 <Checkbox/>
@@ -27,9 +28,8 @@ export default function login(){
                 </div> */}
 
                 <Loginbtn/>
-
             </form>
-                <img src="/GDR/div_login.png" alt="main Image"/>
+
             <div className="login-Foot">
                 <img src="/GDR/btn_chatting.png" alt="main Image"/> <img src="/GDR/btn_remotesupport.png" alt="main Image"/>
             </div>
