@@ -57,8 +57,7 @@ export default function Checkbox(){
                     <img id="checkbox-img1" src="/GDR/cb_login_off.png" alt="unchecked" />
                      <span>자동로그인</span>
                 </label>
-            </div>
-            <div className="input-Ckcontainer">
+
                 <input
                     type="checkbox"
                     checked={isChecked2}

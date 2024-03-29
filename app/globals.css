@@ -1,15 +1,52 @@
 /*바디 전체*/
-body {
+.bodyMain {
   width: 400px;
-  height: 450px; 
-  margin: 80px;
-  border: 1px,rgb(132, 46, 46), solid;
+  height: 550px; 
+  border: 3px #d3d3d3 solid;
+  border-radius: 5px;
+  padding: 50px;
   font-family: Pretendard, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
 }
 
+
+/*루트 레이아웃*/
+.navlayout{
+  float: left;
+  width: 500px;
+  height: 30px;
+  border-bottom: 3px #d3d3d3 solid;
+  border-radius: 5px;
+  margin-top: -50px;
+  margin-left: -50px;
+}
+
+.layoutIco{
+  float: left;
+  margin: 2px;
+}
+
+.navlayout il{
+  float: right;
+  margin: 5px;
+  cursor: pointer;
+}
+
+.navlayout il img{
+  margin-left: 3px
+}
+
+.navlayout span{
+  float: left;
+  margin: 2px;
+  font-weight: 800;
+}
+
+
+
+/*메인*/
 .mainName {
 margin-left: 65px;
-margin-top: 100px;
+margin-top: 20px;
 margin-bottom: 50px;
 }
 
@@ -28,7 +65,7 @@ margin-bottom: 50px;
   margin-right: 10px; /* 이미지와 input 요소 사이 간격 조정 */
 }
 
-.input-Idcontainer input {
+.input-IdcontainerInput {
   border: none; /* 입력 필드의 테두리 스타일 설정 */
   border-radius: 5px; /* 입력 필드의 모서리를 둥글게 설정 */
   height: 35px;
@@ -49,14 +86,14 @@ margin-bottom: 50px;
 }
 
 /*로그인 PW input*/
-.input-Pwcontainer img {
+.input-PwcontainerImg {
   margin-right: 0px; /* 이미지와 input 요소 사이 간격 조정 */
   width: 16px;
   vertical-align: sub;
   cursor: pointer;
 }
 
-.input-Pwcontainer input {
+.input-PwcontainerInput {
   border: none; /* 입력 필드의 테두리 스타일 설정 */
   border-radius: 5px; /* 입력 필드의 모서리를 둥글게 설정 */
   height: 35px;
@@ -67,24 +104,24 @@ margin-bottom: 50px;
 }
 
 .input-Pwcontainer{
-   background-image : url('/GDR/bg_login_pw_0.png');
    background-repeat : no-repeat;
    align-items: center;
    margin-bottom: 10px;
    background-size: 100%;
    height: 60px;
-
+   background-image: url(/GDR/bg_login_pw_0.png);
 }
+
 
 
 /*로그인 버튼*/
-.input-Loginbutton{
-  padding-bottom: 28px;
-  margin: 48px 0px 28px;
+.input-Loginbuttoncon{
+  padding-bottom: 20px;
+  margin: 10px 0px 10px;
   border-bottom: 1px solid rgb(227, 230, 237);
 }
 
-.input-Loginbutton button{
+.input-Loginbutton{
   display: flex;
   -webkit-box-align: center;
   align-items: center;
@@ -106,6 +143,11 @@ margin-bottom: 50px;
 }
 
 /*체크박스 2개*/
+.input-Ckcontainer{
+  margin-top:30px ;
+  margin-bottom: 30px;
+}
+
 .input-Ckcontainer input[type="checkbox"] {
  display: none;
 
@@ -120,6 +162,7 @@ margin-bottom: 50px;
   align-items: center;
   cursor: pointer;
   margin-bottom: 10px;
+  width: 250px;
 }
 
 .input-Ckcontainer span{
@@ -131,7 +174,18 @@ margin-bottom: 50px;
 
 
 
+
 /*로그인 화면 하단 버튼 2개*/
 .login-Foot {
-  margin-top: 20px;
+width: 400px;
+}
+
+.footChat{
+  margin: 5px;
+  cursor: pointer;
+}
+
+.footSupport{
+  margin: 7px;
+  cursor: pointer;
 }
