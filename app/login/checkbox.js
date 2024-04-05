@@ -54,7 +54,7 @@ export default function Checkbox(){
                     id="checkbox1"
                 />
                 <label htmlFor="checkbox1">
-                    <img id="checkbox-img1" src="/GDR/cb_login_off.png" alt="unchecked" />
+                    <img id="checkbox-img1" src="/GDR/cb_login_off.png" alt="unchecked" draggable={false}/>
                      <span>자동로그인</span>
                 </label>
 
@@ -65,7 +65,7 @@ export default function Checkbox(){
                     id="checkbox2"
                 />
                 <label htmlFor="checkbox2">
-                    <img id="checkbox-img2" src="/GDR/cb_login_off.png" alt="unchecked" />
+                    <img id="checkbox-img2" src="/GDR/cb_login_off.png" alt="unchecked" draggable={false}/>
                     <span>Windows와 함께 프로그램 시작</span>
                 </label>
             </div>

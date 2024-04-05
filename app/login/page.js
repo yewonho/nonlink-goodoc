@@ -9,7 +9,7 @@ export default function login(){
     return(
         <div>
             <div className="mainName">
-                <img src="/GDR/Login_ci_new2.png" alt="main Image"/>
+                <img src="/GDR/Login_ci_new2.png" alt="main Image" draggable={false}/>
             </div>
             
             <form>
@@ -19,12 +19,12 @@ export default function login(){
                 <Loginbtn/>
             </form>
             
-            <div className="login-Foot">
-                <LINK href="https://www.naver.com/" target="_blank">
-                    <img className="footChat" src="/GDR/btn_chatting.png" alt="main Image"/> 
+            <div className="login-Foot" >
+                <LINK href="https://www.naver.com/" target="_blank" draggable={false}>
+                    <img className="footChat" src="/GDR/btn_chatting.png" alt="main Image" draggable={false}/> 
                 </LINK>
-                <LINK href="https://www.naver.com/" target="_blank">
-                    <img className="footSupport" src="/GDR/btn_remotesupport.png" alt="main Image"/>
+                <LINK href="https://www.naver.com/" target="_blank" draggable={false}>
+                    <img className="footSupport" src="/GDR/btn_remotesupport.png" alt="main Image" draggable={false}/>
                 </LINK>
             </div>
         </div>

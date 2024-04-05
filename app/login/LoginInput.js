@@ -81,12 +81,12 @@ export default function LoginInput() {
                 {eyeBtn === 'closed' ? (
                     <div className="input-Pwcontainer">
                         <input className="input-PwcontainerInput" type="password" placeholder="비밀번호" onFocus={inputPwfocuson} onBlur={inputPwfusoff}/>
-                        <img className="input-PwcontainerImg" src="/GDR/ic_login_eye_closed.png" alt="eye_closed" onClick={eyeHandle}/>
+                        <img className="input-PwcontainerImg" src="/GDR/ic_login_eye_closed.png" alt="eye_closed" onClick={eyeHandle} draggable={false}/>
                     </div>
                     ) : (
                     <div className="input-Pwcontainer">
                         <input className="input-PwcontainerInput" type="text" placeholder="비밀번호" onFocus={inputPwfocuson} onBlur={inputPwfusoff}/>
-                        <img className="input-PwcontainerImg" src="/GDR/ic_login_eye.png" alt="eye_open" onClick={eyeHandle}/>
+                        <img className="input-PwcontainerImg" src="/GDR/ic_login_eye.png" alt="eye_open" onClick={eyeHandle} draggable={false}/>
                     </div>
                 )}
             </div>
