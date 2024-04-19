@@ -1,6 +1,19 @@
 'use client'
+import { useState } from "react";
+import OptionDropdown from "./OptionDropdown";
+
+
 
 export default function OptionSet(){
+   
+
+    const [isOpen, setIsOpen] = useState(false);
+  const [options] = useState(['Option 1', 'Option 2', 'Option 3']);
+
+    const toggleDropDown = () => {
+    setIsOpen(!isOpen);
+     };
+   
     return(
         <>
         <form>
@@ -26,14 +39,7 @@ export default function OptionSet(){
             <div>차트 설정</div>
             <div>환자 접수 정보를 전송할 프로그램을 설정합니다.</div>
             <div>
-                <button >드롭다운</button>
-                {isOpen && (
-                <ul className="dropdown-menu">
-                    <li>Option 1</li>
-                    <li>Option 2</li>
-                    <li>Option 3</li>
-        </ul>
-      )}
+            <OptionDropdown/>
             </div>
             <input type="checkbox"/>
             <span>환자조회</span>
