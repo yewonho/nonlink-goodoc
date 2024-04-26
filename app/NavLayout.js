@@ -1,6 +1,10 @@
 "use client"
 
+import { useState } from "react";
+import { useRouter } from "next/router";
+
 export default function Navlayout(){
+
 
     const mauseOver = (event) => {
         const id = event.target.id;
@@ -102,16 +106,21 @@ export default function Navlayout(){
         }
     }
 
+    const bergerOn = ()=>{
+        window.location.href = '/option';
+    }
+
     return(
         <nav className="navlayout">
         <img className="layoutIco" src="/GDR/GDReceptionReservation_Icon2.ico"
          alt="head Icon" onDragStart={(e) => e.preventDefault()}/>
         <span>굿닥 병원 서비스</span>
-        <il>
+        <ul>
           <img src="/GDR/env_normal.png" alt="env Icon" id="env" 
           onMouseEnter={mauseOver} onMouseLeave={mauseLeave} 
           onMouseDown={mauseDown} onMouseUp={mauseUp} 
-          onDragStart={(e) => e.preventDefault()} />
+          onDragStart={(e) => e.preventDefault()} 
+          onClick={bergerOn}/>
           
           <img src="/GDR/min_normal.png" alt="min Icon" id="min" 
           onMouseEnter={mauseOver} onMouseLeave={mauseLeave} 
@@ -127,7 +136,7 @@ export default function Navlayout(){
           onMouseEnter={mauseOver} onMouseLeave={mauseLeave} 
           onMouseDown={mauseDown} onMouseUp={mauseUp}
           onDragStart={(e) => e.preventDefault()}/>
-        </il>
+        </ul>
       </nav>
     );
 } 

@@ -29,13 +29,13 @@
   margin: 2px;
 }
 
-.navlayout il{
+.navlayout ul{
   float: right;
   margin: 5px;
   cursor: pointer;
 }
 
-.navlayout il img{
+.navlayout ul img{
   margin-left: 3px
 }
 
@@ -299,3 +299,17 @@ width: 500px;
   background-color: rgb(227, 230, 237);
 }
 
+
+
+.berger{
+  position: relative;
+  float: right;
+  width: auto;
+  height: auto;
+  padding-inline-start: 0px;
+  margin-left: 200px;
+  background-color: gray;
+  z-index : 10;
+  opacity: 1;
+  text-align-last: left;
+}
