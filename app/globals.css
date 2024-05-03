@@ -7,6 +7,7 @@
 .bodyMain {
   width: 500px;
   height: 600px; 
+
   border: 3px #d3d3d3 solid;
   border-radius: 5px;
   padding-top: 30px;
@@ -312,4 +313,69 @@ width: 500px;
   z-index : 10;
   opacity: 1;
   text-align-last: left;
+}
+
+
+
+/*접수요청*/
+.reception {
+  table-layout: fixed;
+  border-collapse: collapse;
+  overflow-x:auto;
+  overflow-y:scroll;
+}
+
+.receptionLabel {
+  background-color: rgb(0, 115, 250);
+  color: rgb(255, 255, 255);
+  padding: 3px;
+}
+
+.receptionCheck {
+ padding: 1px;
+ text-align: right;
+ font-size: 13px;
+}
+
+.receptionCheck img {
+margin-left: 5px;
+margin-right: 3px; 
+width: 20px;
+vertical-align: sub;
+cursor: pointer;
+}
+
+.reception thead {
+  display:block;
+  background: #F0F0F0;
+  color:black;
+  position: sticky;
+  top: 0;
+}
+
+.reception tbody {
+  display:block;
+  height: 195px;
+  max-height: 195px;
+}
+
+
+.reception td, th {
+  font-size: 13px;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid lightgray;
+}
+
+.TimeandRefresh{
+  padding: 5px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.TimeandRefresh img{
+  float: right;
+  width: 60px;
+  vertical-align: sub;
+  cursor: pointer;
 }

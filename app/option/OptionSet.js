@@ -8,7 +8,7 @@ export default function OptionSet(){
    
 
     const [isOpen, setIsOpen] = useState(false);
-  const [options] = useState(['Option 1', 'Option 2', 'Option 3']);
+    const [options] = useState(['Option 1', 'Option 2', 'Option 3']);
 
     const toggleDropDown = () => {
     setIsOpen(!isOpen);
