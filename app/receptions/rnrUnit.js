@@ -215,23 +215,3 @@ export default function RnrUnit(){
     
       return <Table columns={columns} data={data} />;
     }
-
-
-
-    // return(
-    //     <div className="reception">
-    //         <div>접수 (0명) </div>
-    //         <div>
-    //             <input type="checkbox"/><span>전체</span>
-    //             <input type="checkbox"/><span>접수</span>
-    //             <input type="checkbox"/><span>내원</span>
-    //             <input type="checkbox"/><span>완료</span>
-    //             <input type="checkbox"/><span>취소</span>
-    //             <img src="/GDR/filter_normal.png"/>
-    //         </div>
-    //         <div></div>
-    //         <div>접수 확정된 환자가 없습니다</div>
-    //     </div>
-        
-    // )
-// }
