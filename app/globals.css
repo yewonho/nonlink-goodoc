@@ -379,3 +379,33 @@ cursor: pointer;
   vertical-align: sub;
   cursor: pointer;
 }
+
+/* 상세보기 */
+.detailTop {
+  border-bottom: 1px solid black;
+  font-size: 16px;
+  font-weight: 1000;
+  padding-bottom: 5px;
+}
+
+.detailBottom{
+margin-top: 140px;
+border-top: 1px solid black;
+}
+
+.detailBottom1{
+  margin-top: 10px;
+  margin-left: 150px;
+}
+
+.detailBottom2{
+  margin-left: 10px;
+}
+
+.detailView span{
+margin-right: 100px;
+}
+
+.detailView div{
+  padding: 5px;
+}

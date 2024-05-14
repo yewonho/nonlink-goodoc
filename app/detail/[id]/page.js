@@ -4,7 +4,7 @@ export default function detail(){
     
     return(
         <div>
-            상세보기
+            <div className="detailTop">상세보기</div>
             <DetailView/>
             
         </div>
