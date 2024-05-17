@@ -402,10 +402,52 @@ border-top: 1px solid black;
   margin-left: 10px;
 }
 
-.detailView span{
-margin-right: 100px;
-}
-
 .detailView div{
   padding: 5px;
+}
+
+/*상세보기 항목*/
+
+.status{
+  margin-right: 100px;
+}
+
+.name{
+  margin-right: 100px;
+}
+
+.phone{
+  margin-right: 100px;
+}
+
+.regNum{
+  margin-right: 100px;
+}
+
+.purpose{
+  margin-right: 100px;
+}
+
+.path{
+  margin-right: 100px;
+}
+
+.addr{
+  margin-right: 100px;
+}
+
+.room{
+  margin-right: 100px;
+}
+
+.endpoint{
+  margin-right: 100px;
+}
+
+.respontime{
+  margin-right: 100px;
+}
+
+.memo{
+  margin-right: 100px;
 }

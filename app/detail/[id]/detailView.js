@@ -2,47 +2,49 @@ export default function DetailView(){
     return(
         <div className="detailView">
             <div>
-                <span>상태</span>
+                <span className="status">상태</span>
                 <span>접수 요청</span>
             </div>
             <div>
-                <span>이름</span>
+                <span className="name">이름</span>
                 <input type="text"/>
             </div>
             <div>
-                <span>연락처</span>
+                <span className="phone">연락처</span>
                 <input type="text"/>
             </div>
             <div>
-                <span>주민번호</span>
+                <span className="regNum">주민번호</span>
                 <input type="text"/>
             </div>
             <div>
-                <span>내원목적</span>
+                <span className="purpose">내원목적</span>
                 <input type="text"/>
             </div>
             <div>
-                <span>내원경로</span>
+                <span className="path">내원경로</span>
                 <input type="text"/>
             </div>
             <div>
-                <span>주소</span>
+                <span className="addr">주소</span>
                 <textarea/>
             </div>
             <div>
-                <span>진료실</span>
+                <span className="room">진료실</span>
                 <input type="text"/>
             </div>
             <div>
-                <span>수단</span>
+                <span className="endpoint">수단</span>
                 <span>태블릿</span>
             </div>
             <div>
-                <span>요청시각</span>
+                <span className="respontime">요청시각</span>
                 <input type="text"/>
             </div>
             <div>
-                <span>메모</span>
+                <span className="memo">메모</span>
+            </div>
+            <div>
                 <span>시간</span>
             </div>
             <div className="detailBottom">
