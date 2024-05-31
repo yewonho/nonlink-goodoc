@@ -3,6 +3,7 @@ import Checkbox from "./checkbox";
 import Loginbtn from "./loginbtn"
 import LoginInput from "./LoginInput";
 import LINK from "next/link";
+import DllCaller from "./dllCall";
 
 export default function login(){
 
@@ -27,6 +28,9 @@ export default function login(){
                     <img className="footSupport" src="/GDR/btn_remotesupport.png" alt="main Image" draggable={false}/>
                 </LINK>
             </div>
+            <DllCaller/>
         </div>
     );
+    
 }
+
