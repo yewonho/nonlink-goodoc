@@ -9,8 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "-": "^0.0.1",
     "edge-js": "^22.1.1",
+    "g": "^2.0.1",
     "next": "^14.1.4",
+    "npm": "^10.7.0",
     "react": "^18",
     "react-dom": "^18",
     "react-select": "^5.8.0",

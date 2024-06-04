@@ -13,4 +13,6 @@ export default async (req, res) => {
     console.error('Error calling DLL method:', error);
     res.status(500).json({ error: error.message });
   }
+
+  //return res.status(200).json(result);
 };

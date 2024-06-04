@@ -7,16 +7,19 @@ const DllCaller = () => {
   const [error, setError] = useState(null);
 
   const callDll = async () => {
+    console.log('일단 들어오긴 했음')
     try {
+      console.log('트라이 들어옴')
       const response = await fetch('/api/post/bridgeInit', {
         method: 'POST',
-        // headers: {
-        //   'Content-Type': 'application/json',
-        // },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ param: 'login' }), // 필요한 매개변수를 JSON으로 전달
       });
 
       if (!response.ok) {
+        console.log('텍스트찍음')
         const errorText = await response.text();
         throw new Error(`Server error: ${response.status} ${response.statusText} - ${errorText}`);
       }
@@ -25,6 +28,7 @@ const DllCaller = () => {
       setResult(data);
     } catch (err) {
       setError(err.message);
+      console.log('에러확인')
       console.error('Error:', err);
     }
   };
