@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<configures xmlns="goodoccf">
+	<urls>
+		<url name="ping">www.google.com</url>
+		<url name="prepare_dev">http://dev-recv3.goodoc.kr:7083</url>
+		<url name="prepare_rc">https://stg-recv3-service-prepare.goodoc.kr</url>
+		<url name="prepare_stage">https://prd-recv3-service-prepare.goodoc.kr</url>
+		<url name="prepare_production">https://prd-recv3-service-prepare.goodoc.kr</url>
+		<url name="process_dev">http://dev-recv3.goodoc.kr:8081</url>
+		<url name="process_rc">https://stg-recv3-service-process.goodoc.kr</url>
+		<url name="process_stage">https://prd-recv3-service-process.goodoc.kr</url>
+		<url name="process_production">https://prd-recv3-service-prepare.goodoc.kr</url>
+		<url name="nonio_dev">http://dev-recv3.goodoc.kr:8085</url>
+		<url name="nonio_rc">https://stg-recv3-nonio-service.goodoc.kr</url>
+		<url name="nonio_stage">https://prd-recv3-nonio-service.goodoc.kr</url>
+		<url name="nonio_production">https://prd-recv3-service-prepare.goodoc.kr</url>
+		<url name="rest_dev">https://dev-reception-ws.goodoc.kr</url>
+		<url name="rest_rc">https://stg-reception-ws.goodoc.kr</url>
+		<url name="rest_stage">https://reception-ws.goodoc.kr</url>
+		<url name="rest_production">https://prd-recv3-service-prepare.goodoc.kr</url>
+		<url name="eprescription_dev">http://dev-presv1.goodoc.kr:7001</url>
+		<url name="eprescription_rc">https://stg-pres-bridge.goodoc.kr</url>
+		<url name="eprescription_stage">https://prd-pres-bridge.goodoc.kr</url>
+		<url name="eprescription_production">https://prd-recv3-service-prepare.goodoc.kr</url>
+		<url name="bill_dev">http://dev-pay.goodoc.kr:7005</url>
+		<url name="bill_rc">https://stg-pay-rec.goodoc.kr</url>
+		<url name="bill_stage">https://prd-pay-rec.goodoc.kr</url>
+		<url name="bill_production">https://prd-recv3-service-prepare.goodoc.kr</url>
+		<url name="websocket_dev">ws://api-socket.goodoc-develop.co.kr/hospital-ws</url>
+		<url name="websocket_rc">ws://api-socket.goodoc-rc.co.kr/hospital-ws</url>
+		<url name="websocket_stage">ws://api-socket.goodoc-staging.co.kr/hospital-ws</url>
+		<url name="websocket_production">ws://api-socket.goodoc.co.kr/hospital-ws</url>
+		<url name="graphql_dev">https://api-receipt.goodoc-develop.co.kr/v1/hospital-receipt/graphql</url>
+		<url name="graphql_rc">https://api-receipt.goodoc-rc.co.kr/v1/hospital-receipt/graphql</url>
+		<url name="graphql_stage">https://api-receipt.goodoc-staging.co.kr/v1/hospital-receipt/graphql</url>
+		<url name="graphql_production">https://api-receipt.goodoc.co.kr/v1/hospital-receipt/graphql</url>
+		<url name="loggy_url_tag_dev">inputs/a9afa9f3-f49e-4ecc-9746-65255c274cee/tag/goodoc-bridge-develop/</url>
+		<url name="loggy_url_tag_rc">inputs/a9afa9f3-f49e-4ecc-9746-65255c274cee/tag/goodoc-bridge-rc/</url>
+		<url name="loggy_url_tag_stage">inputs/a9afa9f3-f49e-4ecc-9746-65255c274cee/tag/goodoc-bridge-staging/</url>
+		<url name="loggy_url_tag_production">inputs/a9afa9f3-f49e-4ecc-9746-65255c274cee/tag/goodoc-bridge/</url>
+		<url name="loggy_tag_dev">goodoc-bridge-develop</url>
+		<url name="loggy_tag_rc">goodoc-bridge-rc</url>
+		<url name="loggy_tag_stage">goodoc-bridge-staging</url>
+		<url name="loggy_tag_production">goodoc-bridge</url>
+		<url name="loggy_url">https://logs-01.loggly.com/</url>
+	</urls>
+	<version>4.1.4</version>
+	<aliveinterval>30</aliveinterval>
+	<reconninterval>5</reconninterval>
+	<sendloginterval>10</sendloginterval>
+	<privacy>0</privacy>
+	<transaction>0</transaction>
+</configures>
