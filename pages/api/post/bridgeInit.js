@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     console.log('브릿지 인잇')
     if (req.method === 'POST') {
       const { chartCode, hospitalCode, initType} = req.body;
-        console.log(req.body)
+      console.log('API 호출, 파라미터:', { chartCode, hospitalCode, initType });
   
       const payload = {
        chartCode: parseInt(chartCode, 10),
@@ -35,6 +35,7 @@ export default async function handler(req, res) {
       try {
         const result = await callDllMethod(payload);
         res.status(200).json({ result });
+        console.log('API 호출, DLL method result:', result);
       } catch (error) {
         console.error('Error calling DLL method:', error);
         res.status(500).json({ error: 'Error calling DLL method' });

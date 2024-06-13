@@ -64,8 +64,10 @@ const callDllMethod = async () => {
 
       const data = await res.json();
       if (res.ok) {
-        setResult(data.result);
+        console.log(data.result)
+        setData(data.result);
       } else {
+        console.log(data.result)
         setError(data.error);
       }
     } catch (err) {
@@ -77,7 +79,7 @@ const callDllMethod = async () => {
     <div>
       <h1>DLL Method Caller</h1>
       <button onClick={callDllMethod}>Call DLL Method</button>
-      {JSON.result && <pre>{result}</pre>}
+      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
       {error && <pre style={{ color: 'red' }}>{error}</pre>}
     </div>
   );
