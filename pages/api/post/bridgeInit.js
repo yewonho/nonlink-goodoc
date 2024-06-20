@@ -24,13 +24,21 @@ export default async function handler(req, res) {
     console.log('브릿지 인잇')
     if (req.method === 'POST') {
       const { chartCode, hospitalCode, initType} = req.body;
-      console.log('API 호출, 파라미터:', { chartCode, hospitalCode, initType });
+      //const { cellphone, regNum, eventId, jobId, length} = req.body;
+      //console.log('API 호출, 파라미터:', { chartCode, hospitalCode, initType });
   
       const payload = {
        chartCode: parseInt(chartCode, 10),
        hospitalCode: String(hospitalCode),
        initType: parseInt(initType, 10),
-      };
+      // data : {
+      //   cellphone : parseInt(cellphone , 10),
+      //   regNum : parseInt(regNum , 10) ,
+      //   eventId :String(eventId),
+      //   jobId : String(jobId) ,
+      //  },
+      //  length: parseInt(length , 10)
+       };
   
       try {
         const result = await callDllMethod(payload);
@@ -44,3 +52,5 @@ export default async function handler(req, res) {
       res.status(405).json({ error: 'Method not allowed' });
     }
   }
+
+ 

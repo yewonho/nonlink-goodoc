@@ -4,84 +4,60 @@
 
 import { useEffect, useState } from 'react';
 
-export default function Home() {
+export default function DllCall() {
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
 
-//     useEffect(() => {
-//         async function fetchData() {
-//             try {
-//                 const response = await fetch('../api/post/bridgeInit', {
-//                     method: 'GET',
-                   
-//                 });
-
-//                 if (!response.ok) {
-//                     throw new Error('Network response was not ok');
-//                 }
-
-//                 const result = await response.json();
-//                 setData(result);
-//             } catch (error) {
-//                 setError(error.message);
-//             }
-//         }
-
-//         fetchData();
-//     }, []);
-
-//     if (error) {
-//         return <div>Error: {error}</div>;
-//     }
-
-//     if (!data) {
-//         return <div>Loading...</div>;
-//     }
-
-//     return (
-//         <div>
-//             <h1>DLL Load Result</h1>
-//             <pre>{JSON.stringify(data, null, 2)}</pre>
-//         </div>
-//     );
-// }
+    console.log("dllCall 실행");
+    useEffect(() => {
+      async function fetchData() {
+        console.log("Fetching data...");
+        try {
+            const response = await fetch('/api/post/dllCallback', {
+              method: 'POST', // POST 요청으로 변경
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                  pjson : {
+                    cellphone : 0,
+                    regNum : "",
+                    eventId :0,
+                    jobId : ""
+                   }
+              })
+          });
+          console.log("Fetch response received",response );
 
 
+            if (!response.ok) {
+                throw new Error('Network response was not ok', "Network response was not ok:", response.status, response.statusText);
+            }
 
-const callDllMethod = async () => {
-    try {
-      const res = await fetch('../api/post/bridgeInit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chartCode: 3350,
-          hospitalCode: '20000351',
-          initType: 0
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        console.log(data.result)
-        setData(data.result);
-      } else {
-        console.log(data.result)
-        setError(data.error);
-      }
-    } catch (err) {
-      setError('Failed to call API');
+            const result = await response.json();
+            console.log("리스펀스 데이터" +  JSON.stringify(result, null, 2))
+            setData(result);
+        } catch (error) {
+          console.log("Error in fetchData:", error);  
+          setError(error);
+        }
     }
-  };
 
-  return (
+    fetchData();
+}, []);
+
+if (error) {
+    return <div>dllCalljs Error: {error.message}</div>;
+}
+
+if (!data) {
+    return <div>Loading...</div>;
+}
+
+return (
     <div>
-      <h1>DLL Method Caller</h1>
-      <button onClick={callDllMethod}>Call DLL Method</button>
-      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
-      {error && <pre style={{ color: 'red' }}>{error}</pre>}
+        <h1>DLL Callback Data</h1>
+        <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
-  );
-
+);
 }
