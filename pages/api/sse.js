@@ -4,7 +4,7 @@ function eventsHandler(req, res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    //res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', '*'); // 필요한 경우 도메인을 명시
     res.flushHeaders();
 
     clients.push(res);
@@ -28,7 +28,6 @@ export function sendEvent(data) {
     console.log("sse sendEvent", data);
     clients.forEach(client => {
         console.log("클라이언트 write", data);
-        //client.write(`data: ${JSON.stringify(data)}\n\n`);
-        client.write("data: " + JSON.stringify(data) +"\n\n");
+        client.write(`data: ${JSON.stringify(data)}\n\n`);
     });
 }

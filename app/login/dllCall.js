@@ -66,7 +66,6 @@ export default function DllCall() {
 //}
 
 useEffect(() => {
-   
     const eventSource = new EventSource('http://localhost:3000/api/sse');
     console.log("Connecting to SSE...");
 
