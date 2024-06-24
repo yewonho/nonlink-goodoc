@@ -3,13 +3,34 @@
 //일단 됨.
 
 import { useEffect, useState } from 'react';
+import { useGlobalState } from '../../lib/GlobalState';
 
 export default function DllCall() {
     const [data, setData] = useState(null);
-    const [error, setError] = useState(null);
+  const [error, setError] = useState(null);
+  const { state } = useGlobalState();
 
-    console.log("dllCall 실행");
-    
+  useEffect(() => {
+    if (state.data) {
+      setData(state.data);
+    }
+  }, [state]);
+
+  if (error) {
+    return <div>dllCalljs Error: {error.message}</div>;
+  }
+
+  if (!data) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div>
+      <h1>DLL Callback Data</h1>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+}
     
 //     useEffect(() => { 
 //       async function fetchData() {
@@ -65,42 +86,46 @@ export default function DllCall() {
 
 //}
 
-useEffect(() => {
-    const eventSource = new EventSource('http://localhost:3000/api/sse');
-    console.log("Connecting to SSE...");
 
-    eventSource.onopen = function() {
-        console.log("SSE connection opened");
-    };
 
-    eventSource.onmessage = function(event) {
-        console.log('Received SSE data:', event.data);
-        setData(JSON.parse(event.data));
-    };
+//sse
 
-    eventSource.onerror = function(event) {
-        console.error('SSE error:', event);
-        setError('Error connecting to SSE');
-        eventSource.close();
-    };
+// useEffect(() => {
+//     const eventSource = new EventSource('http://localhost:3000/api/sse');
+//     console.log("Connecting to SSE...");
 
-    return () => {
-        eventSource.close();
-    };
-}, []);
+//     eventSource.onopen = function() {
+//         console.log("SSE connection opened");
+//     };
 
-if (error) {
-    return <div>Error: {error}</div>;
-}
+//     eventSource.onmessage = function(event) {
+//         console.log('Received SSE data:', event.data);
+//         setData(JSON.parse(event.data));
+//     };
 
-if (!data) {
-    return <div>Loading...</div>;
-}
+//     eventSource.onerror = function(event) {
+//         console.error('SSE error:', event);
+//         setError('Error connecting to SSE');
+//         eventSource.close();
+//     };
 
-return (
-    <div>
-        <h1>DLL Callback Data</h1>
-        <pre>{JSON.stringify(data, null, 2)}</pre>
-    </div>
-);
-}
+//     return () => {
+//         eventSource.close();
+//     };
+// }, []);
+
+// if (error) {
+//     return <div>Error: {error}</div>;
+// }
+
+// if (!data) {
+//     return <div>Loading...</div>;
+// }
+
+// return (
+//     <div>
+//         <h1>DLL Callback Data</h1>
+//         <pre>{JSON.stringify(data, null, 2)}</pre>
+//     </div>
+// );
+// }
