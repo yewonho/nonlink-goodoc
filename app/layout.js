@@ -1,24 +1,25 @@
+'use client'
+
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Navlayout from "./NavLayout";
+//import { GlobalStateProvider, setGlobalDispatch } from '../lib/GlobalState';
+
 
 
 const inter = Inter({ subsets: ["latin"] });
 
-export const metadata = {
-  title: "비연동 굿닥",
-  description: "굿닥 비연동",
-};
 
 export default function RootLayout({ children }) {
-  return (
+ return (
     <html lang="en">
-      <body>
-      <div className="bodyMain">
-        <Navlayout/>
-        {children}
-      </div>
+     
+      <body className={inter.className}>
+
+          {children}
+
       </body>
+      
     </html>
   );
 }

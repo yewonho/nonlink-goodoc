@@ -1,3 +1,5 @@
+'use client'
+import { useEffect, useState } from 'react';
 import Image from "next/image";
 import Checkbox from "./checkbox";
 import Loginbtn from "./loginbtn"
@@ -5,8 +7,16 @@ import LoginInput from "./LoginInput";
 import LINK from "next/link";
 import DllCall from "./dllCall";
 import Callinit from "./callinit";
+//import { GlobalStateProvider } from '../../lib/GlobalState';
+import SSEtest from "./ssetest"
 
 export default function login(){
+
+
+    const [showDllCall, setShowDllCall] = useState(false);
+
+    useEffect( () => {setShowDllCall(true)},[])
+
 
     return(
         <div>
@@ -29,8 +39,12 @@ export default function login(){
                     <img className="footSupport" src="/GDR/btn_remotesupport.png" alt="main Image" draggable={false}/>
                 </LINK>
             </div>
-            <DllCall/>
+
+             {showDllCall && <DllCall/>}   
+                
             <Callinit/>
+
+            
         </div>
     );
     

@@ -1,33 +1,53 @@
-let clients = [];
+import { addClient, removeClient, getClients } from '../../lib/GlobalState';
 
-function eventsHandler(req, res) {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*'); // 필요한 경우 도메인을 명시
-    res.flushHeaders();
+export const config = {
+  runtime: 'edge',
+};
 
-    clients.push(res);
-    console.log("Client connected. Total clients:", clients.length);
-
-    req.on('close', () => {
-        clients = clients.filter(client => client !== res);
-        console.log("Client disconnected. Total clients:", clients.length);
-    });
-}
-
-export default function handler(req, res) {
-    if (req.method === 'GET') {
-        return eventsHandler(req, res);
-    } else {
-        res.status(405).json({ message: 'Method not allowed' });
+export function sendDataToClients(data) {
+  const clients = getClients();
+  console.log("Entering sendDataToClients, clients length:", clients.length);
+  clients.forEach((client, index) => {
+    console.log(`Sending data to client ${index}:`, data);
+    try {
+      client.controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
+      console.log(`Data sent successfully to client ${index}`);
+    } catch (error) {
+      console.error(`Error sending data to client ${index}:`, error);
     }
+  });
+  console.log("Finished sendDataToClients");
 }
 
-export function sendEvent(data) {
-    console.log("sse sendEvent", data);
-    clients.forEach(client => {
-        console.log("클라이언트 write", data);
-        client.write(`data: ${JSON.stringify(data)}\n\n`);
+export default async function handler(request) {
+  if (request.method === 'GET') {
+    console.log("New SSE connection request received");
+    const stream = new ReadableStream({
+      start(controller) {
+        const clientId = Date.now();
+        const client = {
+          id: clientId,
+          controller
+        };
+        addClient(client);
+
+        // Send an initial message to trigger onopen
+        controller.enqueue(`data: ${JSON.stringify({type: 'connection', status: 'opened'})}\n\n`);
+
+        request.signal.addEventListener('abort', () => {
+          removeClient(clientId);
+        });
+      },
     });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      }
+    });
+  } else {
+    return new Response('Method Not Allowed', { status: 405 });
+  }
 }

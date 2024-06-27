@@ -3,34 +3,44 @@
 //일단 됨.
 
 import { useEffect, useState } from 'react';
-import { useGlobalState } from '../../lib/GlobalState';
+//import { useGlobalState , getGlobalState } from '../../lib/GlobalState';
+//import { getGlobalState } from '../../pages/api/post/dllCallback';
 
 export default function DllCall() {
     const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const { state } = useGlobalState();
+    const [error, setError] = useState(null);
+  //  const state = useGlobalState();
+  const [connectionStatus, setConnectionStatus] = useState('Disconnected');
 
-  useEffect(() => {
-    if (state.data) {
-      setData(state.data);
-    }
-  }, [state]);
 
-  if (error) {
-    return <div>dllCalljs Error: {error.message}</div>;
-  }
-
-  if (!data) {
-    return <div>Loading...</div>;
-  }
-
-  return (
-    <div>
-      <h1>DLL Callback Data</h1>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-    </div>
-  );
-}
+    // 전역변수
+    // useEffect(() => {
+    //     console.log('useEffect triggered');
+    
+    //     const interval = setInterval(() => {
+    //       //  console.log("인터벌")
+    //       const globalData = getGlobalState();
+    //     //  console.log('글로벌데이터',globalData)
+    //       if (globalData && globalData.data) {
+    //         console.log('State data updated: ', globalData);
+    //         setData(globalData.data);
+    //       }
+    //     }, 1000); // 1초마다 전역 상태 확인
+    
+    //     return () => clearInterval(interval); // 컴포넌트 언마운트 시 인터벌 제거
+    //   }, []);
+    
+    //   if (!data) {
+    //     return <div>Loading...</div>;
+    //   }
+    
+    //   return (
+    //     <div>
+    //       <h1>DLL Callback Data</h1>
+    //       <pre>{JSON.stringify(data, null, 2)}</pre>
+    //     </div>
+    //   );
+    // }
     
 //     useEffect(() => { 
 //       async function fetchData() {
@@ -86,46 +96,65 @@ export default function DllCall() {
 
 //}
 
-
-
 //sse
 
-// useEffect(() => {
-//     const eventSource = new EventSource('http://localhost:3000/api/sse');
-//     console.log("Connecting to SSE...");
+useEffect(() => {
+    let eventSource;
 
-//     eventSource.onopen = function() {
-//         console.log("SSE connection opened");
-//     };
+        const connectSSE = () => {
+            console.log("Connecting to SSE...");
+            setConnectionStatus('Connecting');
 
-//     eventSource.onmessage = function(event) {
-//         console.log('Received SSE data:', event.data);
-//         setData(JSON.parse(event.data));
-//     };
+            eventSource = new EventSource('/api/sse');
+          
+            eventSource.onopen = () => {
+              console.log("SSE connection opened");
+              setConnectionStatus('Connected');
+            };
 
-//     eventSource.onerror = function(event) {
-//         console.error('SSE error:', event);
-//         setError('Error connecting to SSE');
-//         eventSource.close();
-//     };
+    eventSource.onmessage = (event) => {
+        try {
+          console.log('Received SSE data:', event.data);
+          const newData = JSON.parse(event.data);
+          setData(newData);
+        } catch (error) {
+          console.error('Error processing SSE data:', error);
+          setError('Error processing data');
+        }
+      };
 
-//     return () => {
-//         eventSource.close();
-//     };
-// }, []);
+      eventSource.onerror = (error) => {
+        console.error('EventSource failed:', error);
+        setError('Connection failed');
+        setConnectionStatus('Error');
+        eventSource.close();
+        // 연결 재시도
+        setTimeout(connectSSE, 5000);
+      };
+    };
 
-// if (error) {
-//     return <div>Error: {error}</div>;
-// }
+    connectSSE();
 
-// if (!data) {
-//     return <div>Loading...</div>;
-// }
+    return () => {
+        if (eventSource) {
+            console.log("Closing SSE connection");
+            eventSource.close();
+          }
+    };
+}, []);
 
-// return (
-//     <div>
-//         <h1>DLL Callback Data</h1>
-//         <pre>{JSON.stringify(data, null, 2)}</pre>
-//     </div>
-// );
-// }
+if (error) {
+    return <div>Error: {error}</div>;
+}
+
+if (!data) {
+    return <div>Loading...</div>;
+}
+
+return (
+    <div>
+        <h1>DLL Callback Data</h1>
+        <pre>{JSON.stringify(data, null, 2)}</pre>
+    </div>
+);
+}
