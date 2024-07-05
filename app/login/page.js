@@ -9,6 +9,7 @@ import DllCall from "./dllCall";
 import Callinit from "./callinit";
 //import { GlobalStateProvider } from '../../lib/GlobalState';
 import SSEtest from "./ssetest"
+import Falling from "./falling"
 
 export default function login(){
 
@@ -43,6 +44,7 @@ export default function login(){
              {showDllCall && <DllCall/>}   
                 
             <Callinit/>
+            <Falling/>
 
             
         </div>

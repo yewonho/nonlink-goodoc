@@ -11,6 +11,58 @@ export default function DllCall() {
     const [error, setError] = useState(null);
   //  const state = useGlobalState();
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
+  const [messages, setMessages] = useState([]);
+  const [clientId, setClientId] = useState(null);
+
+
+  useEffect(() => {
+    let eventSource;
+
+    const connectSSE = () => {
+      console.log('Connecting to SSE...');
+      eventSource = new EventSource('/api/sse');
+
+      eventSource.onopen = (event) => {
+        console.log('SSE connection opened');
+      };
+
+      eventSource.onmessage = (event) => {
+        console.log('Received message:', event.data);
+        const data = JSON.parse(event.data);
+        if (data.type === 'connection' && data.status === 'opened') {
+          setClientId(data.clientId);
+          console.log(`Connected with client ID: ${data.clientId}`);
+        } else {
+          setMessages((prevMessages) => [...prevMessages, data]);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE error:', error);
+        eventSource.close();
+        setTimeout(connectSSE, 5000); // 5초 후 재연결 시도
+      };
+    };
+
+    connectSSE();
+
+    return () => {
+      console.log('Closing SSE connection');
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, []);
+
+  return (
+    <div>
+      <h1>SSE Client (ID: {clientId})</h1>
+      {messages.map((message, index) => (
+        <div key={index}>{JSON.stringify(message)}</div>
+      ))}
+    </div>
+  );
+}
 
 
     // 전역변수
@@ -96,65 +148,68 @@ export default function DllCall() {
 
 //}
 
+
+
+
 //sse
 
-useEffect(() => {
-    let eventSource;
+// useEffect(() => {
+//     let eventSource;
 
-        const connectSSE = () => {
-            console.log("Connecting to SSE...");
-            setConnectionStatus('Connecting');
+//         const connectSSE = () => {
+//             console.log("Connecting to SSE...");
+//             setConnectionStatus('Connecting');
 
-            eventSource = new EventSource('/api/sse');
+//             eventSource = new EventSource('/api/sse');
           
-            eventSource.onopen = () => {
-              console.log("SSE connection opened");
-              setConnectionStatus('Connected');
-            };
+//             eventSource.onopen = () => {
+//               console.log("SSE connection opened");
+//               setConnectionStatus('Connected');
+//             };
 
-    eventSource.onmessage = (event) => {
-        try {
-          console.log('Received SSE data:', event.data);
-          const newData = JSON.parse(event.data);
-          setData(newData);
-        } catch (error) {
-          console.error('Error processing SSE data:', error);
-          setError('Error processing data');
-        }
-      };
+//     eventSource.onmessage = (event) => {
+//         try {
+//           console.log('Received SSE data:', event.data);
+//           const newData = JSON.parse(event.data);
+//           setData(newData);
+//         } catch (error) {
+//           console.error('Error processing SSE data:', error);
+//           setError('Error processing data');
+//         }
+//       };
 
-      eventSource.onerror = (error) => {
-        console.error('EventSource failed:', error);
-        setError('Connection failed');
-        setConnectionStatus('Error');
-        eventSource.close();
-        // 연결 재시도
-        setTimeout(connectSSE, 5000);
-      };
-    };
+//       eventSource.onerror = (error) => {
+//         console.error('EventSource failed:', error);
+//         setError('Connection failed');
+//         setConnectionStatus('Error');
+//         eventSource.close();
+//         // 연결 재시도
+//         setTimeout(connectSSE, 5000);
+//       };
+//     };
 
-    connectSSE();
+//     connectSSE();
 
-    return () => {
-        if (eventSource) {
-            console.log("Closing SSE connection");
-            eventSource.close();
-          }
-    };
-}, []);
+//     return () => {
+//         if (eventSource) {
+//             console.log("Closing SSE connection");
+//             eventSource.close();
+//           }
+//     };
+// }, []);
 
-if (error) {
-    return <div>Error: {error}</div>;
-}
+// if (error) {
+//     return <div>Error: {error}</div>;
+// }
 
-if (!data) {
-    return <div>Loading...</div>;
-}
+// if (!data) {
+//     return <div>Loading...</div>;
+// }
 
-return (
-    <div>
-        <h1>DLL Callback Data</h1>
-        <pre>{JSON.stringify(data, null, 2)}</pre>
-    </div>
-);
-}
+// return (
+//     <div>
+//         <h1>DLL Callback Data</h1>
+//         <pre>{JSON.stringify(data, null, 2)}</pre>
+//     </div>
+// );
+// }

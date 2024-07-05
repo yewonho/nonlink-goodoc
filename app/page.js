@@ -5,6 +5,7 @@ import Reception from "./receptions/reception";
 import RnrUnit from "./receptions/rnrUnit";
 import Timer from "./receptions/timer";
 import Refresh from "./receptions/refresh";
+import Falling from "./login/falling"
 
 export default function Home() {
   return (
@@ -15,7 +16,7 @@ export default function Home() {
             <div className="receptionCheck">
                 <input type="checkbox"/><span>전체</span>
                 <input type="checkbox"/><span>접수</span>
-                <input type="checkbox"/><span>내원</span>
+                <input type="checkbox"/><span>내원</span>s
                 <input type="checkbox"/><span>완료</span>
                 <input type="checkbox"/><span>취소</span>
                 <img src="/GDR/filter_normal.png"/>
