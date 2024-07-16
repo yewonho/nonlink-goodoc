@@ -39,9 +39,11 @@ export default async function handler(req, res) {
       //  },
       //  length: parseInt(length , 10)
        };
+
+       const methodName = 'EdgeGdlInit';
   
       try {
-        const result = await callDllMethod(payload);
+        const result = await callDllMethod(payload , methodName);
         res.status(200).json({ result });
         console.log('API 호출, DLL method result:', result);
       } catch (error) {
