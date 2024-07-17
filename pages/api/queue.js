@@ -1,5 +1,5 @@
 import edge from 'edge-js';
-//import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 import { SendDllMethod } from '../../lib/bridgeHandler';
 
 class SimpleQueue {
@@ -33,28 +33,24 @@ export async function processData(data) {
   const memberData = data;
 
   switch (memberData.eventId) {
-    case 0:
-      // 데이터 누적 및 응답
+    case 0:   // 환자조회 데이터 누적 및 응답
       members = [...members, memberData];
       console.log("케이스 0", memberData)
       await sendResponseToDll(1, memberData);
       break;
-    case 100:
-      // 데이터 누적 및 응답
+    case 100: // 환자 접수 데이터 누적 및 응답
       members = [...members, memberData];
       await sendResponseToDll(101, memberData);
       break;
-    case 102:
-      // 데이터 제외 및 응답
+    case 108: // 상태변경 누적 및 응답
       members = members.filter(member => member.cellphone !== memberData.cellphone);
-      await sendResponseToDll(103, memberData);
+      await sendResponseToDll(109, memberData);
       break;
-    case 108:
-      // 데이터 수정 및 응답
+    case 420: // 리프래시 데이터 누적 및 응답
       members = members.map(member => 
         member.cellphone === memberData.cellphone ? { ...member, ...memberData } : member
       );
-      await sendResponseToDll(109, memberData);
+      await sendResponseToDll(421, memberData);
       break;
     default:
       console.log(`Unhandled eventId: ${memberData.eventId}`);
@@ -69,9 +65,10 @@ async function sendResponseToDll(responseId, memberData) {
 
   const methodName = 'EdgeGdlSendResponse'; // EdgeGdlSendRequest / EdgeGdlSendResponse
 
-  let requestdata = {};
+  let responsedata = {};
+
 if(responseId === 1 ){
-  requestdata = {
+  responsedata = {
     eventId: 1,
     jobId: memberData.jobId,
     code : 200,
@@ -84,7 +81,7 @@ if(responseId === 1 ){
     
  } else if (responseId === 101) {
     const chartReceptnResultId1 = uuidv4(); // 임의로 생성한 값
-    requestdata = {
+    responsedata = {
       eventId: 101,
       jobId: memberData.jobId,
       code: 200,
@@ -109,8 +106,47 @@ if(responseId === 1 ){
         ePrescriptionHospital: 0
       }
     };
+
+   } else if (responseId === 109) {
+      const chartReceptnResultId1 = uuidv4(); // 임의로 생성한 값
+      responsedata = {
+        eventId:109,
+        jobId:"AD929DSI091",
+        code:200,
+        message:""
+  };
+      
+
+    }else if (responseId === 421) {
+        const chartReceptnResultId1 = uuidv4(); // 임의로 생성한 값
+        responsedata = {
+          eventId: 421,
+          jobId: memberData.jobId,
+          code: 200,
+          message: "",
+          result: {
+            hospitalNo: memberData.hospitalNo,
+            patntChartId: memberData.patntChartId,
+            regNum: memberData.regNum,
+            chartReceptnResultId1,
+            chartReceptnResultId2: "",
+            chartReceptnResultId3: "",
+            chartReceptnResultId4: "",
+            chartReceptnResultId5: "",
+            chartReceptnResultId6: "",
+            roomCode: memberData.roomCode,
+            roomNm: memberData.roomNm,
+            deptCode: memberData.deptCode,
+            deptNm: memberData.deptNm,
+            doctrCode: memberData.doctrCode,
+            doctrNm: memberData.doctrNm,
+            gdid: "",
+            ePrescriptionHospital: 0
+          }
+        };
+
   } else {
-    requestdata = {
+    responsedata = {
       eventId: responseId,
       jobId: memberData.jobId,
       code: 200,
@@ -119,7 +155,7 @@ if(responseId === 1 ){
   }
 
   try {
-    const result = await SendDllMethod(requestdata , methodName);
+    const result = await SendDllMethod(responsedata , methodName);
     console.log("Response sent to DLL, result:", result);
   } catch (error) {
     console.error("Error sending response to DLL:", error);
