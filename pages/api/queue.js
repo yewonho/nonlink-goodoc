@@ -149,7 +149,7 @@ if(responseId === 1 ){
     responsedata = {
       eventId: responseId,
       jobId: memberData.jobId,
-      code: 200,
+      code: 8,
       message: ""
     };
   }

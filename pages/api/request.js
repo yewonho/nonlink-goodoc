@@ -99,7 +99,7 @@ async function sendRequestToDll(requestId, memberData) {
         doctrNm:"칠번의",
         roomCode:"104",
         roomNm:"일반진료 01",
-        receptStatusChangeDttm: "2019-06-04T02:59:09.151Z"
+        receptStatusChangeDttm: new Date().toISOString()
     }
       
    } else if (responseId === 106) {
@@ -125,7 +125,7 @@ async function sendRequestToDll(requestId, memberData) {
         patntChartId: "1",
         status: "C04"
         },
-        roomChangeDttm: "2019-05-09T11:15:41.944Z"
+        roomChangeDttm: new Date().toISOString() 
       };
 
     } else if (responseId === 108) {
@@ -157,7 +157,7 @@ async function sendRequestToDll(requestId, memberData) {
         newChartReceptnResultId4:"",
         newChartReceptnResultId5:"",
         newChartReceptnResultId6:"",
-        receptStatusChangeDttm: "2019-05-14T07:39:56.539Z"
+        receptStatusChangeDttm: new Date().toISOString() 
       };
 
     } else if (responseId === 302) {
@@ -277,7 +277,7 @@ async function sendRequestToDll(requestId, memberData) {
         requestdata = {
         eventId: responseId,
         jobId: memberData.jobId,
-        code: 200,
+        code: 8,
         message: ""
       };
     }
